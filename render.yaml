@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: arogya-backend
+    env: python
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn backend.index:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      # Must be >= 3.11: scikit-learn 1.9 declares Requires-Python >=3.11, so the
+      # previous 3.10.12 pin could not install the declared dependency at all.
+      # The committed artifact was fitted under scikit-learn 1.9.0 / Python
+      # 3.14.5 (ml/artifacts/model_metadata.json -> environment). Keep this in
+      # step with that, and re-verify the artifact loads after any change.
+      - key: PYTHON_VERSION
+        value: "3.12.7"
+      - key: PORT
+        value: 10000
+      - key: GEMINI_API_KEY
+        sync: false
+      # Firebase project whose ID tokens the API accepts. Defaults to the value
+      # in backend/core/config.py; set explicitly so a deployment cannot
+      # silently inherit a different project.
+      - key: FIREBASE_PROJECT_ID
+        value: arogyaai-cloud-ad667
+      # Comma-separated browser origins allowed to call this API. Must include
+      # the deployed frontend origin, or the browser will block every request.
+      - key: AROGYA_CORS_ORIGINS
+        value: https://arogyaai.vercel.app
+      # Per-caller requests/minute on /api/predict. 0 disables it.
+      - key: AROGYA_RATE_LIMIT_PER_MINUTE
+        value: "30"

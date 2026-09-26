@@ -1,0 +1,32 @@
+{
+  "model_version": "v3-cv-selected",
+  "model_type": "Logistic Regression",
+  "selection_metric": "f1_macro",
+  "trained_at": "2026-09-26T09:41:32.481762+00:00",
+  "dataset": {
+    "path": "enhanced_ayurvedic_treatment_dataset.csv",
+    "sha256": "c4e81cd60736c79b070cfd02b90eb9915e8e5f0afd173c57de4910b3178fab79",
+    "rows": 4201,
+    "classes": 399,
+    "min_samples_per_class": 3,
+    "median_samples_per_class": 6
+  },
+  "split": {
+    "strategy": "stratified",
+    "test_size": 0.2,
+    "seed": 42,
+    "train_rows": 3360,
+    "test_rows": 841
+  },
+  "features": {
+    "structured": 12,
+    "tfidf": 807,
+    "total": 819
+  },
+  "environment": {
+    "python": "3.14.5",
+    "scikit_learn": "1.9.0",
+    "pandas": "3.0.5",
+    "numpy": "2.5.2"
+  }
+}

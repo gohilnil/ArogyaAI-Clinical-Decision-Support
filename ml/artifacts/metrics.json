@@ -1,0 +1,2947 @@
+{
+  "model_version": "v3-cv-selected",
+  "deployed_model": "Logistic Regression",
+  "selection_metric": "f1_macro",
+  "dataset_sha256": "c4e81cd60736c79b070cfd02b90eb9915e8e5f0afd173c57de4910b3178fab79",
+  "artifact_sha256": "e000590b7cd745a6c2b375568a62ed57ee4e3ee35376aaf68a368ffcf6ecadd0",
+  "artifact_bytes": 2680914,
+  "cross_validation": {
+    "Random Forest": {
+      "folds": [
+        0.7671002413082045,
+        0.7656871980573791,
+        0.7724454364049962
+      ],
+      "mean_f1_macro": 0.7684109585901933,
+      "seconds": 3.0
+    },
+    "Logistic Regression": {
+      "folds": [
+        0.8302651487412761,
+        0.8379124136696746,
+        0.8397574723011515
+      ],
+      "mean_f1_macro": 0.8359783449040341,
+      "seconds": 17.0
+    }
+  },
+  "test_metrics": {
+    "accuracy": 0.8858501783590963,
+    "macro_precision": 0.8310078245192749,
+    "macro_recall": 0.865091481885375,
+    "macro_f1": 0.837246133197732,
+    "weighted_precision": 0.8838708127649864,
+    "weighted_recall": 0.8858501783590963,
+    "weighted_f1": 0.876095994753847,
+    "n_samples": 841,
+    "n_classes": 399
+  },
+  "smote_comparison": {
+    "k_neighbors": 1,
+    "train_rows_resampled": 16758,
+    "test_metrics": {
+      "accuracy": 0.8656361474435196,
+      "macro_precision": 0.8086831602098777,
+      "macro_recall": 0.8398440970960055,
+      "macro_f1": 0.8121415302246253,
+      "weighted_precision": 0.8609762908514393,
+      "weighted_recall": 0.8656361474435196,
+      "weighted_f1": 0.8507423011623378,
+      "n_samples": 841,
+      "n_classes": 399
+    }
+  },
+  "class_distribution": {
+    "min": 3,
+    "median": 6,
+    "max": 52,
+    "classes_with_3": 57
+  },
+  "top_confusions": [
+    {
+      "count": 3,
+      "actual": "Crohn Disease",
+      "predicted": "Inflammatory Bowel Disease"
+    },
+    {
+      "count": 2,
+      "actual": "Osteoarthritis",
+      "predicted": "Arthritis"
+    },
+    {
+      "count": 2,
+      "actual": "Influenza",
+      "predicted": "Flu"
+    },
+    {
+      "count": 2,
+      "actual": "Hepatitis D",
+      "predicted": "Hepatitis C"
+    },
+    {
+      "count": 2,
+      "actual": "Hepatitis C",
+      "predicted": "Hepatitis B"
+    },
+    {
+      "count": 2,
+      "actual": "Hepatitis B",
+      "predicted": "Hepatitis C"
+    },
+    {
+      "count": 2,
+      "actual": "Depression",
+      "predicted": "Major Depressive Disorder"
+    },
+    {
+      "count": 1,
+      "actual": "Wolff-Parkinson-White Syndrome",
+      "predicted": "Aortic Stenosis"
+    },
+    {
+      "count": 1,
+      "actual": "Varicose Veins",
+      "predicted": "Food Poisoning"
+    },
+    {
+      "count": 1,
+      "actual": "Uveitis",
+      "predicted": "Migraine"
+    },
+    {
+      "count": 1,
+      "actual": "Type 2 Diabetes",
+      "predicted": "Diabetes Type 2"
+    },
+    {
+      "count": 1,
+      "actual": "Type 1 Diabetes",
+      "predicted": "Type 2 Diabetes"
+    },
+    {
+      "count": 1,
+      "actual": "Tuberculosis",
+      "predicted": "Sarcoidosis"
+    },
+    {
+      "count": 1,
+      "actual": "Tuberculosis",
+      "predicted": "Pneumonia"
+    },
+    {
+      "count": 1,
+      "actual": "Tuberculosis",
+      "predicted": "Heart Attack"
+    }
+  ],
+  "per_class": {
+    "(Vertigo) Paroymsal Positional Vertigo": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Achilles Tendinitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Acid Reflux": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Acne": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Acromegaly": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Acute Kidney Injury": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Acute Lymphoblastic Leukemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Acute Pancreatitis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Addison Disease": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1-score": 0.8888888888888888,
+      "support": 5.0
+    },
+    "Age-Related Hearing Loss": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Age-Related Macular Degeneration": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Aids": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Alcoholic Hepatitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 7.0
+    },
+    "Allergies": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Allergy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Alopecia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Alpha-1 Antitrypsin Deficiency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Alport Syndrome": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Alzheimer Disease": {
+      "precision": 0.8888888888888888,
+      "recall": 1.0,
+      "f1-score": 0.9411764705882353,
+      "support": 8.0
+    },
+    "Amyotrophic Lateral Sclerosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Anaphylaxis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Anemia": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Angelman Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Antiphospholipid Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Anxiety": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Anxiety Disorder": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Aortic Aneurysm": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Aortic Stenosis": {
+      "precision": 0.3333333333333333,
+      "recall": 1.0,
+      "f1-score": 0.5,
+      "support": 1.0
+    },
+    "Aplastic Anemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Appendicitis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Arrhythmia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Arrhythmogenic Cardiomyopathy": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Arteriovenous Malformation": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Arthritis": {
+      "precision": 0.7777777777777778,
+      "recall": 1.0,
+      "f1-score": 0.875,
+      "support": 7.0
+    },
+    "Aspergillosis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Asthma": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 7.0
+    },
+    "Athlete's Foot": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Atrial Fibrillation": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Attention Deficit Hyperactivity Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Autism Spectrum Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Back Pain": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Beh\u00e7et Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Bell Palsy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Benign Prostatic Hyperplasia": {
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1-score": 0.8571428571428571,
+      "support": 3.0
+    },
+    "Bipolar Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Bipolar I Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Borderline Personality Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Botulism": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Bradycardia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Brain Tumor": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Breast Cancer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Bronchial Asthma": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Bronchiectasis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Bronchiolitis Obliterans": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Bronchitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Brugada Syndrome": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Bullous Pemphigoid": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "COVID-19": {
+      "precision": 0.8333333333333334,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.8333333333333334,
+      "support": 6.0
+    },
+    "Candidiasis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Cardiomyopathy": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Carotid Artery Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Carpal Tunnel Syndrome": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 2.0
+    },
+    "Cataracts": {
+      "precision": 0.75,
+      "recall": 1.0,
+      "f1-score": 0.8571428571428571,
+      "support": 3.0
+    },
+    "Celiac Disease": {
+      "precision": 0.875,
+      "recall": 0.875,
+      "f1-score": 0.875,
+      "support": 8.0
+    },
+    "Cellulitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Cerebral Palsy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Cervical Cancer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Cervical Spondylosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Charcot-Marie-Tooth Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Chicken Pox": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Chickenpox": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Chikungunya": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Chronic Cholestasis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Chronic Fatigue Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Chronic Kidney Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Chronic Lymphocytic Leukemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Chronic Myeloid Leukemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Chronic Obstructive Pulmonary Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Churg-Strauss Syndrome": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Cirrhosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Cluster Headache": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Colorectal Cancer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Common Cold": {
+      "precision": 0.8333333333333334,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.8333333333333334,
+      "support": 6.0
+    },
+    "Congenital Adrenal Hyperplasia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Congenital Heart Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Congestive Heart Failure": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Constipation": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Coronary Artery Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Corticobasal Degeneration": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Crimean-Congo Hemorrhagic Fever": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Crohn Disease": {
+      "precision": 0.8,
+      "recall": 0.5714285714285714,
+      "f1-score": 0.6666666666666666,
+      "support": 7.0
+    },
+    "Cushing Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Cystic Fibrosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "De Quervain Tenosynovitis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Deep Vein Thrombosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Dengue": {
+      "precision": 1.0,
+      "recall": 0.875,
+      "f1-score": 0.9333333333333333,
+      "support": 8.0
+    },
+    "Dengue Fever": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Depression": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 4.0
+    },
+    "Dermatitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Dermatitis Herpetiformis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Dermatomyositis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Desquamative Interstitial Pneumonia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Diabetes": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Diabetes Insipidus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Diabetes Type 1": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Diabetes Type 2": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Diabetic Ketoacidosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Diabetic Retinopathy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Diarrhea": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Dilated Cardiomyopathy": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Dimorphic Hemorrhoids (Piles)": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Drug Reaction": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Duchenne Muscular Dystrophy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Dupuytren Contracture": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Ear Infection": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Ebola Virus": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
+    },
+    "Eczema": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Ehlers-Danlos Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Encephalitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Endometriosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Enlarged Prostate": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Eosinophilic Esophagitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Eosinophilic Granulomatosis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Epididymitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Epilepsy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 7.0
+    },
+    "Erectile Dysfunction": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Erythema Multiforme": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Essential Thrombocythemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Fabry Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Fatty Liver Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Fibromyalgia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Fifth Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Flu": {
+      "precision": 0.3333333333333333,
+      "recall": 1.0,
+      "f1-score": 0.5,
+      "support": 1.0
+    },
+    "Focal Segmental Glomerulosclerosis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Folate Deficiency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Food Poisoning": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Fragile X Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Frailty Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Friedreich Ataxia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Frontotemporal Dementia": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Fuchs Dystrophy": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Fungal Infection": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Fungal Infections": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "GERD": {
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1-score": 0.8571428571428571,
+      "support": 4.0
+    },
+    "Gallstones": {
+      "precision": 1.0,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.9090909090909091,
+      "support": 6.0
+    },
+    "Gastroenteritis": {
+      "precision": 1.0,
+      "recall": 0.7142857142857143,
+      "f1-score": 0.8333333333333334,
+      "support": 7.0
+    },
+    "Gastroparesis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Gaucher Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Generalized Anxiety Disorder": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Gestational Diabetes": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "Giant Cell Arteritis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Giardiasis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Glaucoma": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Glycogen Storage Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Goodpasture Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Goodpasture Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Gout": {
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1-score": 0.8,
+      "support": 2.0
+    },
+    "Graves Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Growth Hormone Deficiency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Guillain-Barr\u00e9 Syndrome": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Hairy Cell Leukemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Hand Foot Mouth Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Hantavirus": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Hashimoto Thyroiditis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Hearing Loss": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Heart Attack": {
+      "precision": 0.8571428571428571,
+      "recall": 1.0,
+      "f1-score": 0.9230769230769231,
+      "support": 6.0
+    },
+    "Heart Disease": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Heart Failure": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1-score": 0.8888888888888888,
+      "support": 5.0
+    },
+    "Heart Valve Disease": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Hemochromatosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Hemophilia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Hemorrhoids": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Henoch-Sch\u00f6nlein Purpura": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Hepatitis A": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Hepatitis B": {
+      "precision": 0.75,
+      "recall": 0.6666666666666666,
+      "f1-score": 0.7058823529411765,
+      "support": 9.0
+    },
+    "Hepatitis C": {
+      "precision": 0.4444444444444444,
+      "recall": 0.6666666666666666,
+      "f1-score": 0.5333333333333333,
+      "support": 6.0
+    },
+    "Hepatitis D": {
+      "precision": 0.6666666666666666,
+      "recall": 0.5,
+      "f1-score": 0.5714285714285714,
+      "support": 4.0
+    },
+    "Hepatitis E": {
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1-score": 0.8571428571428571,
+      "support": 4.0
+    },
+    "Herniated Disc": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Herpes Simplex": {
+      "precision": 0.3333333333333333,
+      "recall": 1.0,
+      "f1-score": 0.5,
+      "support": 1.0
+    },
+    "Hidradenitis Suppurativa": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "High Blood Pressure": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "High Cholesterol": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Histoplasmosis": {
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1-score": 0.5,
+      "support": 2.0
+    },
+    "Huntington Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Hydrocele": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Hyperaldosteronism": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Hypersensitivity Pneumonitis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Hypertension": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Hyperthyroidism": {
+      "precision": 1.0,
+      "recall": 0.6666666666666666,
+      "f1-score": 0.8,
+      "support": 6.0
+    },
+    "Hypertrophic Cardiomyopathy": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Hypoglycemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Hypoplastic Left Heart Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Hypothyroidism": {
+      "precision": 1.0,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.9090909090909091,
+      "support": 6.0
+    },
+    "Idiopathic Pulmonary Fibrosis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "IgA Nephropathy": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Impetigo": {
+      "precision": 1.0,
+      "recall": 0.8571428571428571,
+      "f1-score": 0.9230769230769231,
+      "support": 7.0
+    },
+    "Inclusion Body Myositis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Incontinence": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Inflammatory Bowel Disease": {
+      "precision": 0.25,
+      "recall": 1.0,
+      "f1-score": 0.4,
+      "support": 1.0
+    },
+    "Influenza": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 6.0
+    },
+    "Insomnia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Interstitial Cystitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Iron Deficiency Anemia": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Irritable Bowel Syndrome": {
+      "precision": 1.0,
+      "recall": 0.8,
+      "f1-score": 0.8888888888888888,
+      "support": 5.0
+    },
+    "Jaundice": {
+      "precision": 1.0,
+      "recall": 0.75,
+      "f1-score": 0.8571428571428571,
+      "support": 4.0
+    },
+    "Juvenile Idiopathic Arthritis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Kallmann Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Kawasaki Disease": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Keratoconus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Kidney Stones": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Klinefelter Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Lassa Fever": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Leishmaniasis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Leukemia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Lewy Body Dementia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Lichen Planus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Long QT Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Low Testosterone": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Lung Cancer": {
+      "precision": 0.6666666666666666,
+      "recall": 0.8,
+      "f1-score": 0.7272727272727273,
+      "support": 5.0
+    },
+    "Lupus": {
+      "precision": 0.8,
+      "recall": 1.0,
+      "f1-score": 0.8888888888888888,
+      "support": 4.0
+    },
+    "Lymphangioleiomyomatosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Lymphoma": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Macular Degeneration": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Major Depressive Disorder": {
+      "precision": 0.3333333333333333,
+      "recall": 1.0,
+      "f1-score": 0.5,
+      "support": 1.0
+    },
+    "Malaria": {
+      "precision": 0.625,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.7142857142857143,
+      "support": 6.0
+    },
+    "Male Hypogonadism": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Maple Syrup Urine Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Marburg Virus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Marfan Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "McCune-Albright Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Measles": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Melanoma": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Membranous Nephropathy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Meningitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Menopause": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Menstrual Disorders": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Metabolic Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Microscopic Colitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Migraine": {
+      "precision": 0.9090909090909091,
+      "recall": 1.0,
+      "f1-score": 0.9523809523809523,
+      "support": 10.0
+    },
+    "Minimal Change Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Mitral Regurgitation": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Mononucleosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Morphea": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Multiple Endocrine Neoplasia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Multiple Sclerosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 7.0
+    },
+    "Multiple System Atrophy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Mumps": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "Muscle Strain": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Myasthenia Gravis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Myelodysplastic Syndromes": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
+    },
+    "Myelofibrosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Myocardial Infarction": {
+      "precision": 0.8333333333333334,
+      "recall": 1.0,
+      "f1-score": 0.9090909090909091,
+      "support": 5.0
+    },
+    "Myocarditis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Myositis Ossificans": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Narcolepsy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Neck Pain": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Nephrotic Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Neurofibromatosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Neurogenic Bladder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Niemann-Pick Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Norovirus": {
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1-score": 0.8,
+      "support": 2.0
+    },
+    "Obesity": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
+    },
+    "Obsessive-Compulsive Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Optic Neuritis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Organizing Pneumonia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Osteoarthritis": {
+      "precision": 1.0,
+      "recall": 0.7142857142857143,
+      "f1-score": 0.8333333333333334,
+      "support": 7.0
+    },
+    "Osteoporosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Ovarian Cysts": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Overactive Bladder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "PCOS": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "PMS": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "PTSD": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Pancreatitis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Panic Attacks": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Panic Disorder": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Papilledema": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Paralysis (Brain Hemorrhage)": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Parkinson Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 8.0
+    },
+    "Pelvic Inflammatory Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Pemphigus Vulgaris": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Peptic Ulcer": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Peptic Ulcer Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Pericarditis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Peripheral Artery Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Peyronie Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Phenylketonuria": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Pheochromocytoma": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Pink Eye": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Plantar Fasciitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Pleural Effusion": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Pneumonia": {
+      "precision": 0.7,
+      "recall": 0.7,
+      "f1-score": 0.7,
+      "support": 10.0
+    },
+    "Pneumothorax": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Polyarteritis Nodosa": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Polycystic Kidney Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Polycystic Ovary Syndrome": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "Polycythemia Vera": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Polymyalgia Rheumatica": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Pompe Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Post-Traumatic Stress Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Postpartum Depression": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Prader-Willi Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Prediabetes": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
+    },
+    "Preeclampsia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Primary Biliary Cirrhosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Primary Sclerosing Cholangitis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Progressive Supranuclear Palsy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Prostate Cancer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Prostatitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Protein-Losing Enteropathy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Psoriasis": {
+      "precision": 1.0,
+      "recall": 0.9,
+      "f1-score": 0.9473684210526315,
+      "support": 10.0
+    },
+    "Pulmonary Arterial Hypertension": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Pulmonary Embolism": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Pulmonary Fibrosis": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "Pyoderma Gangrenosum": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Raynaud's Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Restrictive Cardiomyopathy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Retinal Detachment": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Retinitis Pigmentosa": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Rett Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Rheumatoid Arthritis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 7.0
+    },
+    "Ringworm": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Rosacea": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Sarcoidosis": {
+      "precision": 0.5,
+      "recall": 0.5,
+      "f1-score": 0.5,
+      "support": 2.0
+    },
+    "Sarcopenia": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Schistosomiasis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
+    },
+    "Schizophrenia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Sciatica": {
+      "precision": 1.0,
+      "recall": 0.5,
+      "f1-score": 0.6666666666666666,
+      "support": 2.0
+    },
+    "Seasonal Affective Disorder": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Sepsis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Septic Shock": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Shingles": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Short Bowel Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Sickle Cell Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Sinusitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Sj\u00f6gren Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Skin Cancer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Sleep Apnea": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 4.0
+    },
+    "Social Anxiety Disorder": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Spina Bifida": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Spinal Cord Injury": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Spinal Muscular Atrophy": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Spinal Stenosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Stargardt Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Status Epilepticus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Stevens-Johnson Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Strep Throat": {
+      "precision": 0.6666666666666666,
+      "recall": 1.0,
+      "f1-score": 0.8,
+      "support": 2.0
+    },
+    "Stress": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Stroke": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 8.0
+    },
+    "Syringomyelia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Systemic Lupus Erythematosus": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Takayasu Arteritis": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Tay-Sachs Disease": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Temporal Arteritis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Tendinitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 3.0
+    },
+    "Tension Headache": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Tension Pneumothorax": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Testicular Cancer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Tetanus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Tetralogy of Fallot": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Thyroid Cancer": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 5.0
+    },
+    "Thyroid Disorders": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Tinnitus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Tourette Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Toxic Epidermal Necrolysis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Toxoplasmosis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 0.0
+    },
+    "Transposition of Great Arteries": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Transverse Myelitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Trigeminal Neuralgia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Trigger Finger": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Tuberculosis": {
+      "precision": 0.8571428571428571,
+      "recall": 0.6666666666666666,
+      "f1-score": 0.75,
+      "support": 9.0
+    },
+    "Turner Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Type 1 Diabetes": {
+      "precision": 0.5,
+      "recall": 0.8,
+      "f1-score": 0.6153846153846154,
+      "support": 5.0
+    },
+    "Type 2 Diabetes": {
+      "precision": 0.75,
+      "recall": 0.8571428571428571,
+      "f1-score": 0.8,
+      "support": 7.0
+    },
+    "Typhoid": {
+      "precision": 0.8888888888888888,
+      "recall": 1.0,
+      "f1-score": 0.9411764705882353,
+      "support": 8.0
+    },
+    "Ulcerative Colitis": {
+      "precision": 0.8888888888888888,
+      "recall": 1.0,
+      "f1-score": 0.9411764705882353,
+      "support": 8.0
+    },
+    "Urinary Tract Infection": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 6.0
+    },
+    "Uterine Fibroids": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Uveitis": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Varicocele": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Varicose Veins": {
+      "precision": 1.0,
+      "recall": 0.8333333333333334,
+      "f1-score": 0.9090909090909091,
+      "support": 6.0
+    },
+    "Vasculitis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Ventricular Tachycardia": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Vertigo": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Vitamin B12 Deficiency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Vitamin D Deficiency": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Vitiligo": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 2.0
+    },
+    "Waldenstrom Macroglobulinemia": {
+      "precision": 0.5,
+      "recall": 1.0,
+      "f1-score": 0.6666666666666666,
+      "support": 1.0
+    },
+    "Warts": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Wegener Granulomatosis": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "West Nile Virus": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Whipple Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Whooping Cough": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 8.0
+    },
+    "Williams Syndrome": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Wilson Disease": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Wolff-Parkinson-White Syndrome": {
+      "precision": 0.0,
+      "recall": 0.0,
+      "f1-score": 0.0,
+      "support": 1.0
+    },
+    "Yeast Infection": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Yellow Fever": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 1.0
+    },
+    "Zika Virus": {
+      "precision": 0.8571428571428571,
+      "recall": 1.0,
+      "f1-score": 0.9230769230769231,
+      "support": 6.0
+    },
+    "accuracy": 0.8858501783590963,
+    "macro avg": {
+      "precision": 0.8185114662558272,
+      "recall": 0.8520825874209335,
+      "f1-score": 0.8246559657812247,
+      "support": 841.0
+    },
+    "weighted avg": {
+      "precision": 0.8838708127649864,
+      "recall": 0.8858501783590963,
+      "f1-score": 0.876095994753847,
+      "support": 841.0
+    }
+  },
+  "per_class_support": {
+    "(Vertigo) Paroymsal Positional Vertigo": 5,
+    "Achilles Tendinitis": 1,
+    "Acid Reflux": 1,
+    "Acne": 6,
+    "Acromegaly": 1,
+    "Acute Kidney Injury": 1,
+    "Acute Lymphoblastic Leukemia": 1,
+    "Acute Pancreatitis": 1,
+    "Addison Disease": 5,
+    "Age-Related Hearing Loss": 1,
+    "Age-Related Macular Degeneration": 1,
+    "Aids": 4,
+    "Alcoholic Hepatitis": 7,
+    "Allergies": 1,
+    "Allergy": 5,
+    "Alopecia": 1,
+    "Alpha-1 Antitrypsin Deficiency": 2,
+    "Alport Syndrome": 1,
+    "Alzheimer Disease": 8,
+    "Amyotrophic Lateral Sclerosis": 2,
+    "Anaphylaxis": 1,
+    "Anemia": 1,
+    "Angelman Syndrome": 1,
+    "Antiphospholipid Syndrome": 1,
+    "Anxiety": 1,
+    "Anxiety Disorder": 1,
+    "Aortic Aneurysm": 2,
+    "Aortic Stenosis": 1,
+    "Aplastic Anemia": 1,
+    "Appendicitis": 1,
+    "Arrhythmia": 5,
+    "Arrhythmogenic Cardiomyopathy": 1,
+    "Arteriovenous Malformation": 1,
+    "Arthritis": 7,
+    "Aspergillosis": 1,
+    "Asthma": 7,
+    "Athlete's Foot": 2,
+    "Atrial Fibrillation": 1,
+    "Attention Deficit Hyperactivity Disorder": 1,
+    "Autism Spectrum Disorder": 1,
+    "Back Pain": 1,
+    "Beh\u00e7et Disease": 1,
+    "Bell Palsy": 1,
+    "Benign Prostatic Hyperplasia": 3,
+    "Bipolar Disorder": 1,
+    "Bipolar I Disorder": 1,
+    "Borderline Personality Disorder": 1,
+    "Botulism": 1,
+    "Bradycardia": 2,
+    "Brain Tumor": 2,
+    "Breast Cancer": 4,
+    "Bronchial Asthma": 4,
+    "Bronchiectasis": 1,
+    "Bronchiolitis Obliterans": 1,
+    "Bronchitis": 6,
+    "Brugada Syndrome": 1,
+    "Bullous Pemphigoid": 1,
+    "COVID-19": 6,
+    "Candidiasis": 1,
+    "Cardiomyopathy": 1,
+    "Carotid Artery Disease": 1,
+    "Carpal Tunnel Syndrome": 2,
+    "Cataracts": 3,
+    "Celiac Disease": 8,
+    "Cellulitis": 6,
+    "Cerebral Palsy": 1,
+    "Cervical Cancer": 1,
+    "Cervical Spondylosis": 5,
+    "Charcot-Marie-Tooth Disease": 1,
+    "Chicken Pox": 5,
+    "Chickenpox": 1,
+    "Chikungunya": 1,
+    "Chronic Cholestasis": 5,
+    "Chronic Fatigue Syndrome": 1,
+    "Chronic Kidney Disease": 1,
+    "Chronic Lymphocytic Leukemia": 1,
+    "Chronic Myeloid Leukemia": 1,
+    "Chronic Obstructive Pulmonary Disease": 1,
+    "Churg-Strauss Syndrome": 1,
+    "Cirrhosis": 1,
+    "Cluster Headache": 1,
+    "Colorectal Cancer": 4,
+    "Common Cold": 6,
+    "Congenital Adrenal Hyperplasia": 1,
+    "Congenital Heart Disease": 1,
+    "Congestive Heart Failure": 1,
+    "Constipation": 1,
+    "Coronary Artery Disease": 1,
+    "Corticobasal Degeneration": 1,
+    "Crimean-Congo Hemorrhagic Fever": 1,
+    "Crohn Disease": 7,
+    "Cushing Syndrome": 3,
+    "Cystic Fibrosis": 2,
+    "De Quervain Tenosynovitis": 1,
+    "Deep Vein Thrombosis": 1,
+    "Dengue": 8,
+    "Dengue Fever": 1,
+    "Depression": 4,
+    "Dermatitis": 1,
+    "Dermatitis Herpetiformis": 1,
+    "Dermatomyositis": 1,
+    "Desquamative Interstitial Pneumonia": 1,
+    "Diabetes": 6,
+    "Diabetes Insipidus": 1,
+    "Diabetes Type 1": 1,
+    "Diabetes Type 2": 1,
+    "Diabetic Ketoacidosis": 1,
+    "Diabetic Retinopathy": 2,
+    "Diarrhea": 1,
+    "Dilated Cardiomyopathy": 1,
+    "Dimorphic Hemorrhoids (Piles)": 5,
+    "Drug Reaction": 5,
+    "Duchenne Muscular Dystrophy": 3,
+    "Dupuytren Contracture": 1,
+    "Ear Infection": 1,
+    "Ebola Virus": 0,
+    "Eczema": 6,
+    "Ehlers-Danlos Syndrome": 1,
+    "Encephalitis": 1,
+    "Endometriosis": 3,
+    "Enlarged Prostate": 1,
+    "Eosinophilic Esophagitis": 1,
+    "Eosinophilic Granulomatosis": 1,
+    "Epididymitis": 1,
+    "Epilepsy": 7,
+    "Erectile Dysfunction": 3,
+    "Erythema Multiforme": 1,
+    "Essential Thrombocythemia": 1,
+    "Fabry Disease": 1,
+    "Fatty Liver Disease": 1,
+    "Fibromyalgia": 5,
+    "Fifth Disease": 1,
+    "Flu": 1,
+    "Focal Segmental Glomerulosclerosis": 1,
+    "Folate Deficiency": 1,
+    "Food Poisoning": 1,
+    "Fragile X Syndrome": 1,
+    "Frailty Syndrome": 1,
+    "Friedreich Ataxia": 1,
+    "Frontotemporal Dementia": 1,
+    "Fuchs Dystrophy": 1,
+    "Fungal Infection": 4,
+    "Fungal Infections": 1,
+    "GERD": 4,
+    "Gallstones": 6,
+    "Gastroenteritis": 7,
+    "Gastroparesis": 2,
+    "Gaucher Disease": 1,
+    "Generalized Anxiety Disorder": 1,
+    "Gestational Diabetes": 2,
+    "Giant Cell Arteritis": 1,
+    "Giardiasis": 1,
+    "Glaucoma": 3,
+    "Glycogen Storage Disease": 1,
+    "Goodpasture Disease": 1,
+    "Goodpasture Syndrome": 1,
+    "Gout": 2,
+    "Graves Disease": 1,
+    "Growth Hormone Deficiency": 1,
+    "Guillain-Barr\u00e9 Syndrome": 1,
+    "Hairy Cell Leukemia": 1,
+    "Hand Foot Mouth Disease": 1,
+    "Hantavirus": 1,
+    "Hashimoto Thyroiditis": 1,
+    "Hearing Loss": 1,
+    "Heart Attack": 6,
+    "Heart Disease": 1,
+    "Heart Failure": 5,
+    "Heart Valve Disease": 1,
+    "Hemochromatosis": 1,
+    "Hemophilia": 1,
+    "Hemorrhoids": 1,
+    "Henoch-Sch\u00f6nlein Purpura": 1,
+    "Hepatitis A": 6,
+    "Hepatitis B": 9,
+    "Hepatitis C": 6,
+    "Hepatitis D": 4,
+    "Hepatitis E": 4,
+    "Herniated Disc": 1,
+    "Herpes Simplex": 1,
+    "Hidradenitis Suppurativa": 1,
+    "High Blood Pressure": 1,
+    "High Cholesterol": 2,
+    "Histoplasmosis": 2,
+    "Huntington Disease": 4,
+    "Hydrocele": 1,
+    "Hyperaldosteronism": 1,
+    "Hypersensitivity Pneumonitis": 1,
+    "Hypertension": 6,
+    "Hyperthyroidism": 6,
+    "Hypertrophic Cardiomyopathy": 1,
+    "Hypoglycemia": 6,
+    "Hypoplastic Left Heart Syndrome": 1,
+    "Hypothyroidism": 6,
+    "Idiopathic Pulmonary Fibrosis": 1,
+    "IgA Nephropathy": 1,
+    "Impetigo": 7,
+    "Inclusion Body Myositis": 1,
+    "Incontinence": 1,
+    "Inflammatory Bowel Disease": 1,
+    "Influenza": 6,
+    "Insomnia": 3,
+    "Interstitial Cystitis": 1,
+    "Iron Deficiency Anemia": 1,
+    "Irritable Bowel Syndrome": 5,
+    "Jaundice": 4,
+    "Juvenile Idiopathic Arthritis": 1,
+    "Kallmann Syndrome": 1,
+    "Kawasaki Disease": 1,
+    "Keratoconus": 1,
+    "Kidney Stones": 1,
+    "Klinefelter Syndrome": 1,
+    "Lassa Fever": 1,
+    "Leishmaniasis": 1,
+    "Leukemia": 2,
+    "Lewy Body Dementia": 1,
+    "Lichen Planus": 1,
+    "Long QT Syndrome": 1,
+    "Low Testosterone": 1,
+    "Lung Cancer": 5,
+    "Lupus": 4,
+    "Lymphangioleiomyomatosis": 1,
+    "Lymphoma": 1,
+    "Macular Degeneration": 1,
+    "Major Depressive Disorder": 1,
+    "Malaria": 6,
+    "Male Hypogonadism": 1,
+    "Maple Syrup Urine Disease": 1,
+    "Marburg Virus": 1,
+    "Marfan Syndrome": 3,
+    "McCune-Albright Syndrome": 1,
+    "Measles": 2,
+    "Melanoma": 5,
+    "Membranous Nephropathy": 1,
+    "Meningitis": 2,
+    "Menopause": 1,
+    "Menstrual Disorders": 2,
+    "Metabolic Syndrome": 1,
+    "Microscopic Colitis": 1,
+    "Migraine": 10,
+    "Minimal Change Disease": 1,
+    "Mitral Regurgitation": 1,
+    "Mononucleosis": 2,
+    "Morphea": 1,
+    "Multiple Endocrine Neoplasia": 1,
+    "Multiple Sclerosis": 7,
+    "Multiple System Atrophy": 1,
+    "Mumps": 2,
+    "Muscle Strain": 1,
+    "Myasthenia Gravis": 1,
+    "Myelodysplastic Syndromes": 0,
+    "Myelofibrosis": 1,
+    "Myocardial Infarction": 5,
+    "Myocarditis": 1,
+    "Myositis Ossificans": 1,
+    "Narcolepsy": 1,
+    "Neck Pain": 1,
+    "Nephrotic Syndrome": 1,
+    "Neurofibromatosis": 1,
+    "Neurogenic Bladder": 1,
+    "Niemann-Pick Disease": 1,
+    "Norovirus": 2,
+    "Obesity": 0,
+    "Obsessive-Compulsive Disorder": 1,
+    "Optic Neuritis": 1,
+    "Organizing Pneumonia": 1,
+    "Osteoarthritis": 7,
+    "Osteoporosis": 4,
+    "Ovarian Cysts": 2,
+    "Overactive Bladder": 1,
+    "PCOS": 1,
+    "PMS": 1,
+    "PTSD": 1,
+    "Pancreatitis": 1,
+    "Panic Attacks": 1,
+    "Panic Disorder": 1,
+    "Papilledema": 1,
+    "Paralysis (Brain Hemorrhage)": 5,
+    "Parkinson Disease": 8,
+    "Pelvic Inflammatory Disease": 1,
+    "Pemphigus Vulgaris": 1,
+    "Peptic Ulcer": 1,
+    "Peptic Ulcer Disease": 6,
+    "Pericarditis": 1,
+    "Peripheral Artery Disease": 2,
+    "Peyronie Disease": 1,
+    "Phenylketonuria": 1,
+    "Pheochromocytoma": 1,
+    "Pink Eye": 2,
+    "Plantar Fasciitis": 1,
+    "Pleural Effusion": 2,
+    "Pneumonia": 10,
+    "Pneumothorax": 1,
+    "Polyarteritis Nodosa": 1,
+    "Polycystic Kidney Disease": 2,
+    "Polycystic Ovary Syndrome": 2,
+    "Polycythemia Vera": 1,
+    "Polymyalgia Rheumatica": 1,
+    "Pompe Disease": 1,
+    "Post-Traumatic Stress Disorder": 1,
+    "Postpartum Depression": 1,
+    "Prader-Willi Syndrome": 1,
+    "Prediabetes": 0,
+    "Preeclampsia": 1,
+    "Primary Biliary Cirrhosis": 1,
+    "Primary Sclerosing Cholangitis": 1,
+    "Progressive Supranuclear Palsy": 1,
+    "Prostate Cancer": 4,
+    "Prostatitis": 1,
+    "Protein-Losing Enteropathy": 1,
+    "Psoriasis": 10,
+    "Pulmonary Arterial Hypertension": 1,
+    "Pulmonary Embolism": 3,
+    "Pulmonary Fibrosis": 2,
+    "Pyoderma Gangrenosum": 1,
+    "Raynaud's Disease": 1,
+    "Restrictive Cardiomyopathy": 1,
+    "Retinal Detachment": 1,
+    "Retinitis Pigmentosa": 1,
+    "Rett Syndrome": 1,
+    "Rheumatoid Arthritis": 7,
+    "Ringworm": 1,
+    "Rosacea": 1,
+    "Sarcoidosis": 2,
+    "Sarcopenia": 1,
+    "Schistosomiasis": 0,
+    "Schizophrenia": 2,
+    "Sciatica": 2,
+    "Seasonal Affective Disorder": 1,
+    "Sepsis": 1,
+    "Septic Shock": 1,
+    "Shingles": 1,
+    "Short Bowel Syndrome": 1,
+    "Sickle Cell Disease": 2,
+    "Sinusitis": 2,
+    "Sj\u00f6gren Syndrome": 1,
+    "Skin Cancer": 1,
+    "Sleep Apnea": 4,
+    "Social Anxiety Disorder": 1,
+    "Spina Bifida": 2,
+    "Spinal Cord Injury": 1,
+    "Spinal Muscular Atrophy": 1,
+    "Spinal Stenosis": 1,
+    "Stargardt Disease": 1,
+    "Status Epilepticus": 1,
+    "Stevens-Johnson Syndrome": 1,
+    "Strep Throat": 2,
+    "Stress": 1,
+    "Stroke": 8,
+    "Syringomyelia": 1,
+    "Systemic Lupus Erythematosus": 1,
+    "Takayasu Arteritis": 1,
+    "Tay-Sachs Disease": 1,
+    "Temporal Arteritis": 2,
+    "Tendinitis": 3,
+    "Tension Headache": 1,
+    "Tension Pneumothorax": 1,
+    "Testicular Cancer": 1,
+    "Tetanus": 2,
+    "Tetralogy of Fallot": 1,
+    "Thyroid Cancer": 5,
+    "Thyroid Disorders": 1,
+    "Tinnitus": 1,
+    "Tourette Syndrome": 1,
+    "Toxic Epidermal Necrolysis": 1,
+    "Toxoplasmosis": 0,
+    "Transposition of Great Arteries": 1,
+    "Transverse Myelitis": 1,
+    "Trigeminal Neuralgia": 1,
+    "Trigger Finger": 1,
+    "Tuberculosis": 9,
+    "Turner Syndrome": 1,
+    "Type 1 Diabetes": 5,
+    "Type 2 Diabetes": 7,
+    "Typhoid": 8,
+    "Ulcerative Colitis": 8,
+    "Urinary Tract Infection": 6,
+    "Uterine Fibroids": 1,
+    "Uveitis": 1,
+    "Varicocele": 1,
+    "Varicose Veins": 6,
+    "Vasculitis": 2,
+    "Ventricular Tachycardia": 1,
+    "Vertigo": 1,
+    "Vitamin B12 Deficiency": 1,
+    "Vitamin D Deficiency": 1,
+    "Vitiligo": 2,
+    "Waldenstrom Macroglobulinemia": 1,
+    "Warts": 1,
+    "Wegener Granulomatosis": 1,
+    "West Nile Virus": 1,
+    "Whipple Disease": 1,
+    "Whooping Cough": 8,
+    "Williams Syndrome": 1,
+    "Wilson Disease": 1,
+    "Wolff-Parkinson-White Syndrome": 1,
+    "Yeast Infection": 1,
+    "Yellow Fever": 1,
+    "Zika Virus": 6
+  }
+}

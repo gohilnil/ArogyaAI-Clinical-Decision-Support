@@ -1,0 +1,33 @@
+# Runtime dependencies for the ArogyaAI backend and ML pipeline.
+
+# --- ML / data ---
+# scikit-learn is floored at the version the committed artifact was fitted
+# under (1.9.0; see ml/artifacts/model_metadata.json -> environment). The
+# artifact is a pickle: loading it under an older scikit-learn risks an
+# AttributeError or silently different behaviour. Raise this only together
+# with a retrain, and re-verify the artifact loads.
+# scikit-learn 1.9 also requires Python >= 3.11.
+pandas>=2.0.0
+numpy>=1.21.0
+scikit-learn>=1.9.0,<2.0.0
+joblib>=1.3.0
+imbalanced-learn>=0.14.2
+
+# --- API ---
+fastapi>=0.100.0
+uvicorn>=0.22.0
+pydantic>=2.0.0
+python-dotenv>=1.0.0
+
+# --- Firebase ID-token verification (backend/core/security.py) ---
+# Imported directly, so declared directly. They previously resolved only as
+# transitive dependencies of google-generativeai, which would break the API
+# auth path if that package ever dropped or changed them.
+pyjwt>=2.8.0
+cryptography>=42.0.0
+
+# --- LLM provider ---
+google-generativeai>=0.3.0
+
+# --- HTTP client (also backs fastapi.testclient in the test suite) ---
+httpx>=0.28.0

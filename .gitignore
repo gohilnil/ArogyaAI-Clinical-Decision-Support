@@ -1,0 +1,78 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Model files
+*.pkl
+*.model
+*.joblib
+# The deployed artifact is tracked despite the rule above, so a re-train
+# overwrites the tracked file instead of silently adding an untracked one.
+!arogyaai_model.joblib
+
+# Flask
+instance/
+.webassets-cache
+
+# Playwright
+/tmp/playwright-logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+
+# Firebase emulator artifacts
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+.firebase/
+emulator-data/
+
+# Node (the rules test harness has its own package)
+node_modules/
+tests/rules/node_modules/
+
+# Python test/type caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local editor/agent tooling config (per-developer, not part of the project)
+.claude/

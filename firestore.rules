@@ -1,0 +1,232 @@
+rules_version = '2';
+
+// ArogyaAI Firestore security rules
+// =================================
+// Design principles:
+//   * authentication != authorization. Being signed in grants nothing by itself.
+//   * the client never chooses its own privilege. Registration can only create
+//     a `patient`; a `doctor` document additionally requires a valid, unused
+//     invite that an administrator created out of band.
+//   * role and clinicId are immutable after creation, so privilege cannot be
+//     escalated by updating an existing document.
+//   * a patient document is a PERSON; an assessment is a CLINICAL EVENT.
+//     Identity is not copied into assessments.
+//   * clinical records are scoped to the clinic of the practitioner who owns them,
+//     and a patient may read only their own record.
+//
+// Query compatibility: a list query is only authorized if the rule's conditions
+// can be satisfied from the query's own constraints. Every collection query the
+// UI issues therefore filters on `clinicId`, which is the field the rules check.
+// Path-scoped reads (a patient's own subtree) need no filter. These exact
+// patterns are probed against the running emulator in tests/rules/.
+//
+// Verified by the emulator suite in tests/rules/. See SECURITY.md.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function uid() {
+      return request.auth.uid;
+    }
+
+    // The caller's own profile document. Costs one read per evaluation, and
+    // throws (denying the request) when the profile does not exist, which is
+    // the desired behaviour for a user without a provisioned account.
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(uid())).data;
+    }
+
+    function isDoctor() {
+      return isSignedIn() && profile().role == 'doctor';
+    }
+
+    function isPatient() {
+      return isSignedIn() && profile().role == 'patient';
+    }
+
+    function myClinic() {
+      return profile().clinicId;
+    }
+
+    // The patient record this account is linked to, or '' when unlinked.
+    // A linked account may read exactly that patient's record and assessments.
+    // The link is set by redeeming a clinician-issued patient code, so it acts
+    // as a capability rather than something discoverable by enumeration.
+    function myPatientId() {
+      return profile().get('patientId', '');
+    }
+
+    function ownsPatient(patientId) {
+      return isPatient() && myPatientId() != '' && myPatientId() == patientId;
+    }
+
+    function isClinicId(v) {
+      return v is string && v.size() == 6;
+    }
+
+    // An invite is valid only if it exists, has not been consumed, and was
+    // issued for exactly the clinic being claimed. Reading it here (rather than
+    // exists()) means a bogus code also fails safely: get() on a missing
+    // document denies the request. Binding the clinic means a leaked invite for
+    // one clinic cannot be redeemed against another.
+    function inviteGrants(code, clinicId) {
+      return code is string
+        && get(/databases/$(database)/documents/invites/$(code)).data.used == false
+        && get(/databases/$(database)/documents/invites/$(code)).data.clinicId == clinicId;
+    }
+
+    // A patient may only link to a patient record that exists and belongs to
+    // the same clinic the account was registered into. An empty code unlinks.
+    function validPatientLink(patientId, clinicId) {
+      return patientId == ''
+        || (
+          exists(/databases/$(database)/documents/patients/$(patientId))
+          && get(/databases/$(database)/documents/patients/$(patientId)).data.clinicId == clinicId
+        );
+    }
+
+    // ---------- users ----------
+    // A user may read only their own profile. Creation is constrained by role:
+    // `patient` is free, `doctor` requires an existing invite document.
+    match /users/{userId} {
+      allow read: if isSignedIn() && userId == uid();
+
+      allow create: if isSignedIn()
+        && userId == uid()
+        && request.resource.data.email is string
+        && isClinicId(request.resource.data.clinicId)
+        && validPatientLink(
+             request.resource.data.get('patientId', ''),
+             request.resource.data.clinicId
+           )
+        && (
+          request.resource.data.role == 'patient'
+          || (
+            request.resource.data.role == 'doctor'
+            && inviteGrants(
+                 request.resource.data.inviteCode,
+                 request.resource.data.clinicId
+               )
+          )
+        );
+
+      // role, clinicId and email are immutable: an update may not change them.
+      // A patient account may additionally (un)link itself to a patient record,
+      // but only within its own clinic.
+      allow update: if isSignedIn()
+        && userId == uid()
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.clinicId == resource.data.clinicId
+        && request.resource.data.email == resource.data.email
+        && (
+          resource.data.role == 'doctor'
+          || validPatientLink(
+               request.resource.data.get('patientId', ''),
+               resource.data.clinicId
+             )
+        );
+
+      // Accounts are removed through the Auth admin API, never from a client.
+      allow delete: if false;
+    }
+
+    // ---------- invites ----------
+    // Created by an administrator out of band (Firebase console / admin SDK),
+    // which bypasses these rules. A signed-in user may look up ONE invite by
+    // its exact code — that is how registration checks a code before claiming
+    // it — and may mark an unused invite as used exactly once. Nothing else.
+    //
+    // `get` and `list` are separated deliberately. A single `read` rule would
+    // also authorise a collection query, letting any signed-in account list
+    // every invite and its clinicId. Treating the code as a capability means
+    // it must be presented, not discovered, so `list` is denied outright.
+    // Issuers must therefore generate codes with real entropy (see SECURITY.md).
+    match /invites/{code} {
+      allow get: if isSignedIn();
+      allow list: if false;
+
+      allow update: if isSignedIn()
+        && resource.data.used == false
+        && request.resource.data.used == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']);
+
+      allow create, delete: if false;
+    }
+
+    // ---------- patients ----------
+    // Identity only: who the person is. No symptoms, no diagnosis — those are
+    // clinical events and live in the assessments subcollection.
+    match /patients/{patientId} {
+      // A practitioner of the owning clinic, or the patient themself.
+      allow read: if (isDoctor() && resource.data.clinicId == myClinic())
+        || ownsPatient(patientId);
+
+      allow create: if isDoctor()
+        && request.resource.data.clinicId == myClinic()
+        && request.resource.data.name is string
+        && request.resource.data.createdBy == uid();
+
+      // The clinic that owns a patient can never change.
+      allow update: if isDoctor()
+        && resource.data.clinicId == myClinic()
+        && request.resource.data.clinicId == resource.data.clinicId
+        && request.resource.data.name is string;
+
+      // Records are retained, not destroyed, so history stays auditable.
+      allow delete: if false;
+    }
+
+    // ---------- assessments ----------
+    // One clinical event: the symptoms and profile an analysis was run on, the
+    // model's prediction and confidence, and the AI report. Append-only.
+    match /patients/{patientId}/assessments/{assessmentId} {
+      allow read: if (isDoctor() && resource.data.clinicId == myClinic())
+        || ownsPatient(patientId);
+
+      allow create: if isDoctor()
+        && request.resource.data.clinicId == myClinic()
+        && request.resource.data.createdBy == uid()
+        && request.resource.data.patientId == patientId;
+
+      // A clinical event is never rewritten or removed.
+      allow update, delete: if false;
+    }
+
+    // Collection-group reads of assessments, used by the clinician dashboard to
+    // count activity across a clinic. The query must filter on clinicId, which
+    // is exactly what this rule checks.
+    match /{path=**}/assessments/{assessmentId} {
+      allow read: if isDoctor() && resource.data.clinicId == myClinic();
+    }
+
+    // ---------- patient_logs ----------
+    // Symptom diary entries. A patient writes and reads only their own. A
+    // practitioner reads the entries belonging to their clinic.
+    match /patient_logs/{logId} {
+      allow read: if isSignedIn() && (
+        (resource.data.userId == uid())
+        || (isDoctor() && resource.data.clinicId == myClinic())
+      );
+
+      // `clinicId` must be the writer's OWN clinic, taken from their profile.
+      // It is not enough for it to be a string: a doctor reads every entry
+      // whose clinicId matches their clinic, so an unbound clinicId let any
+      // signed-in user write entries into another clinic's feed.
+      allow create: if isSignedIn()
+        && request.resource.data.userId == uid()
+        && request.resource.data.clinicId == myClinic();
+
+      allow update, delete: if false;
+    }
+
+    // Deny everything else by default.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
