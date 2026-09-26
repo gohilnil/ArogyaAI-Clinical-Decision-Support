@@ -1,158 +1,134 @@
-# ArogyaAI — Third Review Preparation
+# ArogyaAI — Review Preparation
 
-> Every statement below is based on the final codebase, verified by running the
-> backend and inspecting the source. Anything not verified is marked
-> **NOT CONFIRMED**.
+> Every statement below is checked against the final codebase. Anything not
+> verified is marked **NOT VERIFIED**. For the demo script and mentor Q&A, see
+> [`DEMO_GUIDE.md`](DEMO_GUIDE.md).
 
 ---
 
-## 1. Project Objective
+## 1. Project objective
 
-An AI-powered Ayurvedic clinical decision-support and patient-management
-system. It (a) predicts a likely condition from symptoms + patient profile
-using a trained Random Forest model, and (b) generates a personalised Ayurvedic
-explanation and care plan using Google Gemini.
+An Ayurvedic **clinical decision-support** and patient-management system. It
+(a) predicts a likely condition from a patient's symptoms and profile using a
+trained **Logistic Regression** model, and (b) generates a personalised
+Ayurvedic explanation for that prediction using Google Gemini. It is not a
+diagnostic device and has not been clinically evaluated.
 
 ## 2. Architecture (only components that actually exist)
 
 ```
 React (Vite, TypeScript)
    │  Firebase Authentication (email/password, Google)
-   │  Firestore (users, patients, patient_logs)
+   │  Firestore (users, patients, patients/{id}/assessments, patient_logs, invites)
    │
-   └─ fetch POST /api/predict ─► FastAPI (backend/index.py)
-                                     │
-                                     ├─ preprocess (encode + TF-IDF + scale)
-                                     ├─ Random Forest  → disease + confidence
-                                     └─ if confidence ≥ 35% → Gemini → text
+   └─ POST /api/predict (Firebase ID token) ─► FastAPI (backend.main)
+                                                   │
+                                                   ├─ preprocess (encode + TF-IDF + scale)
+                                                   ├─ Logistic Regression → label + confidence
+                                                   └─ if confidence ≥ 35% → Gemini → narrative
 ```
 
-There is **no OCR** and **no file/PDF upload** component. The only PDF feature
-is a browser `window.print()` button labelled "Export PDF".
+There is **no OCR** and **no file/PDF upload** component. The only PDF feature is
+a browser `window.print()` button labelled "Export PDF". There is **no**
+rule-based knowledge base or offline recommendation database.
 
-## 3. Technology Stack
+## 3. Technology stack
 
 | Layer | Technology |
 |---|---|
 | Frontend | React 19, TypeScript, Vite 8, React Router 7, Tailwind CSS 3, Framer Motion, lucide-react |
-| Backend | Python, FastAPI, Uvicorn, Pydantic v2 |
+| Backend | Python ≥ 3.11, FastAPI, Uvicorn, Pydantic v2 |
 | Database | Firebase Firestore (NoSQL document store) |
 | Auth | Firebase Authentication |
-| ML | scikit-learn Random Forest, joblib-persisted pipeline |
-| GenAI | Google Gemini (via `google-generativeai` SDK on the backend) |
-| ML dataset | `enhanced_ayurvedic_treatment_dataset.csv` — 4201 rows, 399 diseases |
+| ML | scikit-learn **Logistic Regression**, joblib-persisted artifact |
+| GenAI | Google Gemini (via `google-generativeai` on the backend) |
+| ML dataset | `enhanced_ayurvedic_treatment_dataset.csv` — 4,201 rows, 399 labels |
 
 ## 4. Database
 
-Provider: **Firebase Firestore** in project `arogyaai-cloud` (verified live via
-the Identity Toolkit API — returns HTTP 200 with `localhost` and
-`arogyaai-cloud.firebaseapp.com` as authorised domains).
+Provider: **Firebase Firestore**, project **`arogyaai-cloud-ad667`** (pinned in
+`.firebaserc`, `firebase.json`, `render.yaml` and `backend/core/config.py`).
 
-## 5. Collections and Fields
+## 5. Collections and fields
 
 | Collection | Written from | Fields |
 |---|---|---|
 | `users` | registration | `email`, `role` (`doctor`/`patient`), `clinicId` |
 | `patients` | Diagnose → Save Record | `name`, `age`, `gender`, `dosha`, `symptoms`, `diagnosis`, `confidence`, `clinicId`, `createdAt` |
+| `patients/{id}/assessments` | Save Record | one document per visit (append-only) |
 | `patient_logs` | Patient symptom logger | `userId`, `email`, `symptoms`, `clinicId`, `createdAt` |
+| `invites` | created out-of-band only | `used`, `clinicId` |
 
-The Gemini recommendation text is **displayed only and not stored**.
+The Gemini narrative is **displayed only and not stored**.
 
-## 6. API Endpoints
+## 6. API endpoints
 
-| Method | Endpoint | Purpose | Input | Output |
-|---|---|---|---|---|
-| GET | `/` | Root info | — | welcome JSON |
-| GET | `/api/health` | Health + metadata | — | status, model, `supported_diseases`: 399 |
-| POST | `/api/predict` | ML + Gemini | symptom/profile JSON | `prediction`, `confidence`, `recommendation` |
+| Method | Endpoint | Auth | Purpose |
+|---|---|---|---|
+| `GET` | `/` | public | Service banner |
+| `GET` | `/api/health` | public | Status, loaded model name, class count (399) |
+| `POST` | `/api/predict` | **Firebase ID token** | Prediction + explanation + Ayurvedic narrative |
 
-## 7. Authentication Flow
+`POST /api/predict` is **authenticated** (returns 401 without a valid token) and
+**rate-limited per caller** (default 30/min, 429 with `Retry-After`).
 
-Register → `createUserWithEmailAndPassword` → `setDoc(users/{uid})` with
-`role` + `clinicId` → `onAuthStateChanged` loads profile → role-based routes.
-Google sign-in uses `signInWithPopup`. Logout uses `signOut(auth)`.
-Passwords are hashed by Firebase; the app never stores them.
+## 7. Authentication flow
 
-## 8. ML Flow
+Register → `createUserWithEmailAndPassword` → `setDoc(users/{uid})` with a role
+and clinic ID → `onAuthStateChanged` loads the profile → role-based routes.
+Practitioner registration additionally consumes an `invites/{code}` document.
+Google sign-in uses `signInWithPopup`. Logout uses `signOut(auth)`. Passwords are
+hashed by Firebase; the application never stores them.
 
-Input JSON → `derive_age_group` → fallback normalisation of categoricals →
-`preprocess_input` (label-encode 8 categoricals, TF-IDF the `Symptoms` string,
-compute BMI, scale) → `model.predict` + `predict_proba` → decode via
-`encoders['Disease']` → confidence = max probability × 100.
+## 8. ML flow
 
-## 9. GenAI Flow
+Input JSON → `derive_age_group` → normalise unseen categoricals onto a known
+class → `preprocess_input` (label-encode categoricals, TF-IDF the symptom string,
+compute BMI, scale) → `model.predict` + `predict_proba` → decode through
+`encoders['Disease']` → confidence = `max(probability) × 100`.
 
-Backend builds a templated Ayurvedic prompt from the profile + ML prediction,
-calls Gemini, returns the text as `recommendation`. Model fallback chain:
-`gemini-flash-latest` → `gemini-flash-lite-latest` → `gemini-2.5-flash`.
-On total failure it returns a safe "unavailable" message (no crash).
+**Measured performance** (untouched 841-row test split, leak-free pipeline):
+accuracy 0.8859, macro-F1 0.8372. The older 99–100% figures are withdrawn as
+leakage-affected. See `MODEL_CARD.md`.
 
-## 10. Data-Storage Flow
+## 9. GenAI flow
 
-Save Record → `addDoc(collection(db,"patients"))` with `clinicId` from the
-logged-in user's profile → records page queries `where("clinicId","==", ...)`.
-A safety guardrail writes `"General Imbalance (Review Required)"` instead of a
-disease name when confidence < 35.
+The backend builds a templated Ayurvedic prompt from the profile and the ML
+prediction, calls Gemini, and returns the text as the narrative. Model fallback
+chain: `gemini-flash-latest` → `gemini-flash-lite-latest` → `gemini-2.5-flash`.
+On total failure it returns a safe "unavailable" message and does not crash.
 
-## 11. 5-Minute Live Demo
+## 10. Data-storage flow
 
-1. **Auth screen** — "This is Firebase Auth; email/password and Google."
-2. **Log in as doctor** — dashboard loads.
-3. **Dashboard** — "Diagnostics Run, Average ML Confidence and Dominant Dosha
-   are read live from Firestore for my clinic ID — not hardcoded."
-4. **Diagnose** — enter patient + symptoms. Use `diarrhea, stomach cramps,
-   loose motion` (≈68%) so the AI plan actually fires.
-5. **Analyze** — shows disease, confidence %, and the Ayurvedic plan.
-6. **Save Record** — "Written to Firestore scoped to my clinicId."
-7. **Patient Records** — the record appears.
-8. *(Optional)* log in as a patient and submit a symptom diary → appears in the
-   Diaries tab.
+Save Record → `addDoc(collection(db, "patients"))` with the `clinicId` from the
+logged-in user's profile; the records page queries
+`where("clinicId", "==", …)`. A guardrail writes
+`"General Imbalance (Review Required)"` instead of a disease name when
+confidence < 35.
 
-**Demo tip:** free-text symptoms often score below the 35% gate and show
-"Inconclusive Data". That is a real safety feature — present it as such, but
-for the *positive* path use the symptom vocabulary above.
+## 11. Security model (verified)
 
-## 12–19. Viva Questions
+Enforced in `firestore.rules`, exercised by the 61-test emulator suite:
 
-*(Condensed — see the earlier audit report in this session for the full set.)*
+- A patient can read and write **only their own** record and logs.
+- A practitioner can reach **only their own clinic's** data.
+- Assessments and log entries are **append-only** — no client update or delete.
+- Invites are `get`-only by code and **cannot be enumerated** or created from a client.
+- A collection with no rule is **denied by default**.
+- The API requires a valid Firebase ID token and is rate-limited.
 
-Key answers:
-- **Why Random Forest?** Handles mixed tabular + text features and gives
-  calibrated probabilities for the confidence score.
-- **What is TF-IDF?** Converts symptom text to weighted numeric vectors.
-- **Why a 35% threshold?** Safety — below it the prediction is unreliable, so
-  no treatment plan is generated.
-- **Why Firestore?** Serverless, real-time, integrates with Firebase Auth.
-- **Is the API authenticated?** No — `/api/predict` is public. Known limitation.
-- **Does OCR exist?** No. Do not claim it.
-- **How many diseases?** 399.
+## 12. Known limitations (state these honestly)
 
-## 20. Testing Performed
+1. The dataset has no clinical provenance; label synonyms cap achievable accuracy.
+2. Confidence is uncalibrated (`max(predict_proba)`, no Platt/isotonic step).
+3. The 35% gate is a safety heuristic, not a statistical cut-off.
+4. The rate limiter is per-process — horizontal scaling multiplies the limit.
+5. The Ayurvedic narrative is LLM-generated and is not persisted.
+6. No OCR, no report upload.
+7. No live deployment has been verified from this environment (no Render/Vercel/
+   Firebase credentials were available). See `DEPLOYMENT.md`.
 
-| Test | Result |
-|---|---|
-| `GET /api/health` | ✅ 200, 399 diseases |
-| `GET /` | ✅ 200 |
-| `POST /api/predict` high confidence | ✅ 68%, real Gemini text, ~4 s |
-| `POST /api/predict` low confidence | ✅ "Inconclusive Data", no AI plan |
-| Invalid age (0) | ✅ 422 validation error |
-| Gemini model fallback | ✅ works (`gemini-2.5-flash` retired → alias used) |
-| Frontend `tsc -b` | ✅ exit 0 |
-| Frontend `npm run build` | ✅ built successfully |
-| Existing unit suite `tests/test_backend_api.py` | ⚠️ could not run — needs `httpx2`, not installed |
+## 13. Live demo
 
-## 21. Known Limitations
-
-1. `/api/predict` is unauthenticated.
-2. Firestore security rules are not version-controlled in the repo; they live
-   in the Firebase console and could not be inspected.
-3. The AI recommendation text is not persisted.
-4. Free-text symptoms frequently fall below the 35% gate.
-5. No OCR / medical-report upload.
-6. The backend test suite needs an extra dependency (`httpx2`) to run.
-
-## 22. Future Improvements
-
-Persist AI plans; authenticate the API with Firebase ID tokens; add report
-upload + OCR; expand training data; add per-clinic Firestore rules in version
-control.
+See [`DEMO_GUIDE.md`](DEMO_GUIDE.md) §4 for the step-by-step script, the sample
+case that clears the confidence gate, and the mentor Q&A.

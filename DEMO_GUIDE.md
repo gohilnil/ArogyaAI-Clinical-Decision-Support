@@ -1,88 +1,140 @@
-# Arogya AI — Project Overview & Live Mentor Demo Guide 🌿
+# ArogyaAI — Mentor Demo Guide 🌿
 
-## 1. Project Elevator Pitch (What to say first)
+Every statement below is checked against the code in this repository. Where a
+number is quoted, it comes from `ml/artifacts/metrics.json` or a live run.
 
-> **"Arogya AI is a Hybrid AI Healthcare System that fuses Machine Learning (Random Forest) with LLM Reasoning (Google Gemini) and Ancient Ayurvedic Wisdom. It bridges traditional Indian medicine (Ayurveda) with modern predictive analytics to deliver personalized disease diagnosis, dosha balancing, and holistic treatment plans."**
+## 1. Project Elevator Pitch (what to say first)
+
+> **"ArogyaAI is a Clinical Decision Support prototype for Ayurvedic practice.
+> It predicts a likely condition from a patient's symptoms and profile using a
+> trained Logistic Regression model, then uses Google Gemini to generate an
+> Ayurvedic explanation and care guidance for that prediction. The prediction and
+> the generated explanation are shown separately, so a practitioner can always
+> see which part is statistical and which is LLM prose. It is decision support —
+> not a diagnostic device."**
 
 ---
 
-## 2. Technical Architecture & System Highlights
+## 2. Architecture (only components that actually exist)
 
 ```mermaid
 graph TD
-    A[User Input / Frontend React+Vite] --> B[FastAPI Backend /api/predict]
-    B --> C[TF-IDF & Feature Scaling]
-    C --> D[Random Forest ML Model]
-    D -->|Prediction + Confidence %| E{Confidence Check}
-    E -->|Confidence >= 35%| F[Google Gemini 2.5 LLM]
-    E -->|Confidence < 35% / LLM Fallback| G[Rule-Based Knowledge Base]
-    F --> H[Personalized Ayurvedic Diagnosis & Plan]
+    A[React + Vite Frontend] -->|POST /api/predict + Firebase ID token| B[FastAPI Backend]
+    B --> C[Preprocess: encode + TF-IDF + scale]
+    C --> D[Logistic Regression Model]
+    D -->|label + confidence| E{Confidence >= 35%?}
+    E -->|Yes| F[Google Gemini]
+    E -->|No| G[Return 'Inconclusive Data'<br/>no explanation generated]
+    F --> H[Prediction + explanation + Ayurvedic narrative]
     G --> H
-    H --> I[React Frontend Dashboard]
+    H --> A
+    A <-->|Firestore, scoped by clinicId| I[(Firestore)]
 ```
 
-### Key Technical Stack:
-- **Frontend**: React 19, TypeScript, Vite, Tailwind CSS, Lucide Icons, Framer Motion
-- **Backend**: FastAPI, Uvicorn, Pydantic, Python 3.14
-- **Machine Learning**: Scikit-Learn (Random Forest Classifier), TF-IDF Vectorizer (889 symptom features), SMOTE Class Balancing (100% accuracy on dataset)
-- **Generative AI**: Google Gemini 2.5 Flash LLM for clinical validation & personalized recommendations
-- **Dataset**: `enhanced_ayurvedic_treatment_dataset.csv` (3.5MB+, 50+ herbs, 30+ therapies, Sanskrit & English mappings)
+There is **no** rule-based knowledge base, and **no** offline recommendation
+database. When the LLM is unavailable, the prediction still returns and the
+narrative is replaced by a plain "unavailable" message — nothing else is
+substituted. See `FALLBACK_MECHANISM.md`.
+
+### Technical stack
+
+- **Frontend**: React 19, TypeScript, Vite 8, Tailwind CSS 3, Framer Motion, lucide-react
+- **Backend**: FastAPI, Uvicorn, Pydantic v2, Python ≥ 3.11
+- **Machine Learning**: scikit-learn — **Logistic Regression** (multinomial), selected by cross-validation. TF-IDF over symptom text (807 features) + 12 structured features = **819 inputs**. 399 classes.
+- **Generative AI**: Google Gemini, with a 3-model fallback chain
+- **Database / Auth**: Firebase Firestore + Firebase Authentication
+- **Dataset**: `enhanced_ayurvedic_treatment_dataset.csv` — 4,201 rows, 399 labels
 
 ---
 
-## 3. Step-by-Step Live Demonstration Script
+## 3. Measured model performance (say these, not 99%)
 
-Follow these exact steps when demonstrating the project to your mentor or evaluator:
+From `ml/artifacts/metrics.json`, on an untouched 841-row test split, produced by
+the leak-free pipeline in `ml/train.py`:
 
-### Step 1: Show the Landing Page & Architecture Overview
-1. Open the app at `http://localhost:5173`.
-2. Point out the clean **Clinical UI design**, key features overview, and the **Dosha Self-Assessment** module.
-3. **What to say**: *"Our system starts with an intuitive healthcare dashboard that allows patients to input their symptoms along with physical parameters like Age, Weight, Height, Dosha (Body Type), Season, and Weather."*
+| Metric | Value |
+|---|---|
+| Accuracy | **0.8859** |
+| Macro F1 | **0.8372** |
+| Weighted F1 | 0.8761 |
 
-### Step 2: Live Symptom & Prediction Demo
-1. Scroll to the **Disease & Treatment Predictor** form on the page.
-2. Input the following sample test case:
-   - **Symptoms**: `fever, severe headache, body ache, chills, fatigue`
-   - **Age**: `25`
-   - **Height**: `175 cm` | **Weight**: `70 kg`
-   - **Gender**: `Male`
-   - **Body Type (Dosha)**: `Pitta`
-   - **Season**: `Monsoon` | **Weather**: `Humid`
-3. Click **Analyze & Generate Diagnosis**.
-
-### Step 3: Explain the Live Results Screen
-1. **Show the ML Output**: Highlight the ML Model Prediction (e.g. *Jwara / Fever*) and Confidence score (e.g. *99%*).
-2. **Show the Personalized Ayurvedic Plan**:
-   - **Sanskrit & English Herbs**: Tulasi (Holy Basil), Sunthi (Dry Ginger), Haridra (Turmeric).
-   - **Therapies**: Swedana (Steam therapy), Langhana (Fasting/Rest).
-   - **Dietary Advice**: Warm soups, herbal teas; avoid cold/oily foods.
-   - **Dosha Balancing**: Specific explanation of how this plan calms aggravated *Pitta* dosha.
-3. **What to say**: *"Notice how the ML model first identifies the condition with high statistical precision. Then, our LLM enriches this with personalized Ayurvedic lifestyle guidance, diet plans, and herb formulations specifically tuned to the user's body type and current weather conditions."*
+The older 99–100% figures came from a pipeline that leaked the test set into
+preprocessing and model selection. They are withdrawn and must not be repeated.
+Full detail: `MODEL_CARD.md`.
 
 ---
 
-## 4. Key Highlights to Emphasize to Mentor
+## 4. Live Demonstration Script
 
-1. **Hybrid Architecture (Best of Both Worlds)**:
-   - ML provides deterministic, high-accuracy statistical prediction.
-   - LLM provides human-like natural language explanations, dietary plans, and contextual reasoning.
+### Step 1 — Authentication
 
-2. **Self-Healing Fallback Mechanism**:
-   - If confidence is below threshold (<35%) or if network/API limits occur, the system smoothly falls back to a curated rule-based database, ensuring zero downtime for patients.
+1. Open the app.
+2. Point out the role selector (patient / practitioner) and the Google sign-in option.
+3. **Say:** *"Registration and login are handled by Firebase Authentication;
+   passwords are never stored by our code. A practitioner additionally needs an
+   invite code, which Firestore rules make impossible to create from a client."*
 
-3. **Natural Language Processing (TF-IDF)**:
-   - Converts unstructured text symptoms into 889 quantitative NLP features.
+### Step 2 — Run a prediction (practitioner)
 
-4. **Holistic Care (Beyond Synthetic Drugs)**:
-   - Provides dual Sanskrit + English herb names, contraindications, and lifestyle adjustments.
+1. Open **Diagnose**.
+2. Enter a patient and symptoms. This case scores above the 35% gate:
+   - **Symptoms:** `fever, severe headache, body ache, chills, fatigue`
+   - **Age:** 25 · **Height:** 175 cm · **Weight:** 70 kg
+   - **Gender:** Male · **Body type (Dosha):** Pitta
+   - **Season:** Monsoon · **Weather:** Hot & humid
+3. Click **Analyze**.
+
+### Step 3 — Explain the result screen
+
+1. **ML Prediction** — the label and the confidence percentage.
+   **Say:** *"This is the model's own output. The confidence is a raw
+   `max(predict_proba)` — not a calibrated probability — so I report it as a
+   relative score, not as a chance of being correct."*
+2. **AI X-Ray / explanation panel** — the model's own per-feature contributions.
+   **Say:** *"These are the actual terms from the linear model's score for the
+   predicted class — computed from its coefficients, not inferred from the
+   generated text."*
+3. **Ayurvedic narrative** — generated by Gemini.
+   **Say:** *"This part is generated prose. It is educational context for the
+   prediction; it does not verify or improve the prediction, and it has not been
+   clinically reviewed."*
+4. **Disclaimer** — point out the on-screen statement that this is decision
+   support and requires practitioner review.
+
+### Step 4 — Save and review
+
+1. **Save Record** → written to Firestore under the practitioner's `clinicId`.
+2. Open **Patient Records** → the record appears, scoped to the clinic.
+3. Log in as the patient → they see only their own record and their assessment
+   history.
+
+**Demo tip:** free-text symptom phrasing often scores below the 35% gate and
+shows *Inconclusive Data*. That is the safety gate working — present it as a
+feature. Use the vocabulary above for the positive path.
 
 ---
 
-## 5. Likely Mentor Questions & Ideal Answers
+## 5. Likely mentor questions
 
-| Likely Question | Ideal Answer to Give |
-| :--- | :--- |
-| **Q1: Why use Random Forest instead of just using LLM?** | *"LLMs can hallucinate medical diagnoses. Random Forest trained on structured medical data gives stable, repeatable, high-accuracy predictions (99%+). We use the LLM only for clinical explanation and personalized formatting."* |
-| **Q2: How do you handle imbalanced data in the dataset?** | *"We used SMOTE (Synthetic Minority Over-sampling Technique) in `train_model.py` to balance disease categories before training."* |
-| **Q3: What happens if the Gemini API key is invalid or offline?** | *"The system has a built-in fallback mechanism (`FALLBACK_MECHANISM.md`) that seamlessly uses our embedded dataset to return validated Ayurvedic recommendations."* |
-| **Q4: How are body types (Doshas) accounted for?** | *"Ayurveda categorizes constitutions into Vata, Pitta, and Kapha. Our feature engine encodes the user's Dosha and adjusts herb/diet recommendations accordingly (e.g., cooling herbs for Pitta, warming herbs for Vata)."* |
+| Question | Answer |
+|---|---|
+| **Why Logistic Regression and not Random Forest?** | Both are trained and compared by cross-validation. Logistic Regression won (CV macro-F1 0.8360 vs RF 0.7684) and is what is deployed — there is no manual override. RF is also slower and larger. |
+| **What is your accuracy?** | 0.8859 accuracy, 0.8372 macro-F1, on an untouched 841-row test split. Earlier 99–100% figures were withdrawn as leakage-affected. |
+| **How do you handle class imbalance?** | `class_weight='balanced'` in training. SMOTE is fitted on the training split only and recorded as a comparison variant, not used for the deployed model. |
+| **What happens if the LLM fails?** | The prediction still returns. Only the narrative degrades — to a plain "temporarily unavailable" message. There is no knowledge-base fallback; it does not exist. |
+| **Is `/api/predict` authenticated?** | Yes — it requires a Firebase ID token and returns 401 without one. It is also rate-limited per caller (30/min by default, 429 with `Retry-After`). |
+| **How are Doshas used?** | The recorded constitution is one encoded input feature. It influences the prediction and is passed to the LLM as context; it is not a lookup key into an herb table. |
+| **How many conditions?** | 399 labels. |
+| **Does it diagnose?** | No. It suggests a likely condition with a confidence, for a practitioner to review. It is not clinically validated. |
+
+---
+
+## 6. Honest limitations (know these before you are asked)
+
+1. The dataset has no clinical provenance and contains label synonyms the model
+   cannot separate, which caps achievable accuracy.
+2. Confidence is uncalibrated — no Platt scaling or isotonic regression.
+3. The 35% gate is an inherited safety heuristic, not a statistically derived cut-off.
+4. The rate limiter is per-process; scaling out multiplies the effective limit.
+5. Ayurvedic guidance is LLM-generated, not curated, and is not persisted.
+6. No OCR, no medical-report upload, no multi-tenancy beyond the clinic ID.
