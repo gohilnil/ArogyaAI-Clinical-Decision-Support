@@ -253,26 +253,6 @@ export async function listPatientAssessments(
     );
 }
 
-/**
- * One assessment by its id, scoped to a patient the caller may read.
- *
- * The path carries the patient id as well as the assessment id, and both come
- * from the caller's own linked record rather than a route parameter, so this
- * cannot be pointed at another patient's history. A missing document returns
- * null — the caller renders "not found" rather than treating it as an error.
- */
-export async function getAssessment(
-  patientId: string,
-  assessmentId: string,
-): Promise<Assessment | null> {
-  if (!patientId || !assessmentId) return null;
-  const snap = await getDoc(
-    doc(db, "patients", patientId, "assessments", assessmentId),
-  );
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...(snap.data() as Omit<Assessment, "id">) };
-}
-
 /** Every assessment in the caller's clinic, newest first. */
 export async function listClinicAssessments(
   clinicId: string,

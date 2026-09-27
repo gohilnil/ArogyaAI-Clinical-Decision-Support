@@ -4,20 +4,21 @@ import LoginPage from "./pages/LoginPage";
 import AppShell from "./components/layout/AppShell";
 import UnprovisionedPage from "./pages/UnprovisionedPage";
 import PendingApprovalPage from "./pages/PendingApprovalPage";
+import { BootScreen } from "./components/layout/BootScreen";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export default function App() {
   const { user, userData, authLoading } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  if (authLoading)
-    return (
-      <div className="min-h-screen bg-slate-900 flex items-center justify-center text-emerald-500 font-black text-2xl">
-        Initializing Secure Portal...
-      </div>
-    );
+  if (authLoading) return <BootScreen />;
 
   if (!user) {
-    return <LoginPage />;
+    return (
+      <ErrorBoundary>
+        <LoginPage />
+      </ErrorBoundary>
+    );
   }
 
   // Signed in but with no usable profile (missing document, or a legacy one
@@ -37,7 +38,11 @@ export default function App() {
     (userData?.role === "admin" || Boolean(userData?.clinicId));
 
   if (!hasUsableProfile) {
-    return <UnprovisionedPage user={user} />;
+    return (
+      <ErrorBoundary>
+        <UnprovisionedPage user={user} />
+      </ErrorBoundary>
+    );
   }
 
   // A practitioner who is not yet approved is denied every clinic read by the
@@ -47,15 +52,21 @@ export default function App() {
     userData?.role === "doctor" &&
     (userData.status === "pending" || userData.status === "rejected")
   ) {
-    return <PendingApprovalPage user={user} userData={userData} />;
+    return (
+      <ErrorBoundary>
+        <PendingApprovalPage user={user} userData={userData} />
+      </ErrorBoundary>
+    );
   }
 
   return (
-    <AppShell
-      user={user}
-      userData={userData}
-      isSidebarOpen={isSidebarOpen}
-      setIsSidebarOpen={setIsSidebarOpen}
-    />
+    <ErrorBoundary>
+      <AppShell
+        user={user}
+        userData={userData}
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+      />
+    </ErrorBoundary>
   );
 }

@@ -153,7 +153,7 @@ export default function Sidebar({
             : "Patient Portal"}
       </div>
 
-      <nav className="space-y-2 flex-1">
+      <nav id="main-navigation" aria-label="Primary" className="space-y-2 flex-1">
         {navItems.map((item) => {
           const isActive = isCurrent(item.path);
           return (
@@ -162,39 +162,50 @@ export default function Sidebar({
               to={item.path}
               aria-current={isActive ? "page" : undefined}
               onClick={() => window.innerWidth < 768 && setIsOpen(false)}
-              className={`flex items-center gap-4 px-4 py-4 rounded-2xl font-bold transition-all ${isActive ? "bg-emerald-500/10 text-emerald-400" : "hover:bg-slate-900 hover:text-white"}`}
+              className={`relative flex items-center gap-4 px-4 py-4 rounded-2xl font-bold transition-all ${isActive ? "bg-emerald-500/10 text-emerald-400" : "hover:bg-slate-900 hover:text-white"}`}
             >
-              {item.icon} {item.name}
               {isActive && (
                 <motion.div
                   layoutId="active-pill"
-                  className="w-1.5 h-8 bg-emerald-500 absolute left-0 rounded-r-full"
+                  className="w-1.5 h-8 bg-emerald-500 absolute left-0 top-1/2 -translate-y-1/2 rounded-r-full"
+                  aria-hidden="true"
                 />
               )}
+              {item.icon} {item.name}
             </Link>
           );
         })}
       </nav>
 
-      <div
-        className="mt-auto bg-slate-900 p-4 rounded-2xl flex items-center gap-4 border border-slate-800 relative group cursor-pointer"
+      {/* A real <button>, not a clickable div. The div had no role, was not
+          reachable by Tab, and could not be activated with Enter or Space — so
+          the only way out of the app on desktop was to find the menu item a
+          different way. As a button it is focusable, announces as "Sign out",
+          and carries a focus ring. */}
+      <button
+        type="button"
         onClick={() => signOut(auth)}
+        aria-label={`Sign out of ${user?.email || "your account"}`}
+        className="mt-auto w-full bg-slate-900 p-4 rounded-2xl flex items-center gap-4 border border-slate-800 group text-left hover:border-slate-700 hover:bg-slate-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 transition-colors"
       >
-        <div className="w-10 h-10 bg-emerald-900 rounded-full flex items-center justify-center text-emerald-400 font-black">
+        <div
+          className="w-10 h-10 bg-emerald-900 rounded-full flex items-center justify-center text-emerald-400 font-black flex-shrink-0"
+          aria-hidden="true"
+        >
           <User size={20} />
         </div>
-        <div className="overflow-hidden">
+        <div className="overflow-hidden min-w-0">
           <p className="text-white font-bold text-sm truncate">
             {user?.email?.split("@")[0] || "User"}
           </p>
-          <p className="text-slate-500 text-xs font-medium group-hover:hidden capitalize">
+          <p className="text-slate-500 text-xs font-medium capitalize group-hover:hidden">
             {userRole}
           </p>
           <p className="text-red-400 text-xs font-bold hidden group-hover:flex items-center gap-1">
-            <LogOut size={12} /> Sign Out
+            <LogOut size={12} aria-hidden="true" /> Sign out
           </p>
         </div>
-      </div>
+      </button>
     </aside>
   );
 }

@@ -12,8 +12,10 @@ import {
   Eye,
   EyeOff,
   LogOut,
+  KeyRound,
+  Download,
 } from "lucide-react";
-import { signOut } from "firebase/auth";
+import { signOut, updatePassword } from "firebase/auth";
 import { auth } from "../../config/firebase";
 import {
   attachMyOrphanedLogs,
@@ -21,6 +23,7 @@ import {
   linkPatientAccount,
   updatePatient,
 } from "../../services/firestore";
+import { downloadJson, fileStamp } from "../../lib/download";
 import { patientCodeFromUrl } from "../../services/patientCode";
 import type { Patient, UserData } from "../../types";
 import { useToast } from "../../components/ui/toast-context";
@@ -88,6 +91,10 @@ export default function PatientProfile({
   const [recordLoading, setRecordLoading] = useState(false);
   const [form, setForm] = useState<RecordForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+
+  const [newPassword, setNewPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const linkedId = userData?.patientId || "";
 
@@ -209,6 +216,81 @@ export default function PatientProfile({
       toast.error("Could not unlink. Please try again.");
     } finally {
       setLinking(false);
+    }
+  };
+
+  /**
+   * Change the signed-in account's password.
+   *
+   * Firebase refuses this if the session is not recent ("requires-recent-login"),
+   * which happens on a long-lived tab. That is reported as the specific action
+   * it needs rather than a generic failure, because "sign out and back in" is
+   * something the patient can actually do about it.
+   */
+  const handleChangePassword = async () => {
+    if (!user) return;
+    if (newPassword.length < 6) {
+      toast.error("Your new password must be at least 6 characters.");
+      return;
+    }
+    setChangingPassword(true);
+    try {
+      await updatePassword(user, newPassword);
+      setNewPassword("");
+      toast.success("Your password has been updated.");
+    } catch (e: unknown) {
+      const code =
+        e && typeof e === "object" && "code" in e
+          ? String((e as { code: unknown }).code)
+          : "";
+      if (code.includes("requires-recent-login")) {
+        toast.error(
+          "For your security, please sign out and sign in again before changing your password.",
+        );
+      } else {
+        console.error("Could not change the password:", e);
+        toast.error("Could not update your password. Please try again.");
+      }
+    } finally {
+      setChangingPassword(false);
+    }
+  };
+
+  /**
+   * Download everything this account can read, as a JSON file.
+   *
+   * This is real data portability: the file is assembled from the same reads
+   * the pages already perform, so it can never contain more than the account is
+   * entitled to. It is generated and saved entirely in the browser — nothing is
+   * uploaded anywhere.
+   */
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      // Re-read fresh rather than exporting whatever the page happens to hold,
+      // so the file reflects the record as it is now.
+      const fresh = linkedId ? await getPatient(linkedId) : null;
+      const payload = {
+        exportedAt: new Date().toISOString(),
+        account: {
+          email: user?.email ?? null,
+          role: userData?.role ?? null,
+          clinicId: userData?.clinicId ?? null,
+          linkedRecordId: linkedId || null,
+        },
+        healthRecord: fresh,
+        note:
+          "This file contains the data your ArogyaAI account is permitted to read. " +
+          "Clinical assessments are recorded by your practitioner; the confidence " +
+          "figure is the model's raw output, not a probability the result is correct.",
+      };
+      downloadJson(`arogyaai-my-data-${fileStamp()}.json`, payload);
+      toast.success("Your data file has been downloaded.");
+    } catch (e) {
+      console.error("Could not export your data:", e);
+      toast.error("Could not prepare your data export. Please try again.");
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -438,6 +520,52 @@ export default function PatientProfile({
             </Button>
           </div>
         </SectionCard>
+
+        {/* Change password. This was previously impossible from inside the
+            app — a signed-in patient who wanted a new password had to sign out
+            and use the "forgot password" email flow. */}
+        <SectionCard
+          title="Password"
+          icon={<KeyRound size={22} />}
+          iconTone="bg-amber-100 text-amber-600"
+          description="Change the password you use to sign in."
+          className="mt-6"
+        >
+          <div className="space-y-4">
+            {user?.providerData?.some((p) => p.providerId === "google.com") &&
+            !user?.providerData?.some((p) => p.providerId === "password") ? (
+              <p className="text-sm font-medium text-slate-500">
+                You signed in with Google, so there is no password on this
+                account to change. Manage it in your Google account settings.
+              </p>
+            ) : (
+              <>
+                <Field
+                  label="New password"
+                  hint="At least 6 characters."
+                >
+                  <Input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    autoComplete="new-password"
+                    placeholder="••••••••"
+                  />
+                </Field>
+                <Button
+                  variant="success"
+                  fullWidth
+                  loading={changingPassword}
+                  disabled={newPassword.length < 6}
+                  icon={<KeyRound size={18} />}
+                  onClick={handleChangePassword}
+                >
+                  Update password
+                </Button>
+              </>
+            )}
+          </div>
+        </SectionCard>
       </TabPanel>
 
       <TabPanel id="privacy" active={tab}>
@@ -510,6 +638,27 @@ export default function PatientProfile({
               </div>
             </li>
           </ul>
+
+          {/* Data portability: a real download of what the account can read,
+              generated in the browser. Nothing is uploaded anywhere. */}
+          <div className="pt-6 mt-6 border-t border-slate-100">
+            <h4 className="font-black text-slate-900 text-sm mb-1">
+              Download your data
+            </h4>
+            <p className="text-sm font-medium text-slate-500 leading-relaxed mb-4">
+              Save a copy of the information your account can read — your
+              account details and your linked health record — as a JSON file.
+              It is created in your browser; nothing is sent anywhere.
+            </p>
+            <Button
+              variant="secondary"
+              loading={exporting}
+              icon={<Download size={18} />}
+              onClick={handleExport}
+            >
+              Download my data
+            </Button>
+          </div>
         </SectionCard>
       </TabPanel>
 
