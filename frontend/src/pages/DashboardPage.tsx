@@ -25,6 +25,8 @@ export default function GlobalDashboard({ userData }: { userData: UserData | nul
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  /** Bumped to re-run the fetch when the clinician retries. */
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -43,13 +45,18 @@ export default function GlobalDashboard({ userData }: { userData: UserData | nul
         setAssessments(asmts);
       } catch (e) {
         console.error("Error fetching dashboard stats:", e);
+        // A failed request must not be presented as a clinic with zero
+        // activity. The figures are blanked so the tiles below render "—",
+        // which reads as "unknown", not as "none".
+        setPatients([]);
+        setAssessments([]);
         setError("Could not load clinic statistics.");
       } finally {
         setLoading(false);
       }
     };
     fetchStats();
-  }, [userData]);
+  }, [userData, reloadToken]);
 
   // --- derived metrics (real data only) ---
   const totalPatients = patients.length;
@@ -86,7 +93,13 @@ export default function GlobalDashboard({ userData }: { userData: UserData | nul
   const scoredAssessments = assessments.length - gatedCount;
 
   const show = (v: number | null | undefined, suffix = "") =>
-    loading ? "…" : v === null || v === undefined ? "—" : `${v}${suffix}`;
+    loading
+      ? "…"
+      : error
+        ? "—"
+        : v === null || v === undefined
+          ? "—"
+          : `${v}${suffix}`;
 
   return (
     <motion.div
@@ -104,8 +117,21 @@ export default function GlobalDashboard({ userData }: { userData: UserData | nul
       </div>
 
       {error && (
-        <div className="p-4 bg-red-100 text-red-700 font-bold rounded-2xl">
-          {error}
+        <div className="p-6 bg-red-100 text-red-700 rounded-2xl flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex-1">
+            <p className="font-black">{error}</p>
+            <p className="text-sm font-semibold text-red-600/80 mt-1">
+              The figures below are unavailable, not zero. This is a failed
+              request, so no clinic totals can be shown.
+            </p>
+          </div>
+          <button
+            onClick={() => setReloadToken((n) => n + 1)}
+            disabled={loading}
+            className="bg-red-700 text-white px-6 py-3 rounded-xl font-black text-sm hover:bg-red-800 transition-colors disabled:opacity-60 flex-shrink-0"
+          >
+            {loading ? "Retrying…" : "Retry"}
+          </button>
         </div>
       )}
 

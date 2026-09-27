@@ -18,6 +18,7 @@ Review 3 Test Suite Covering:
 
 import sys
 import os
+import json
 import unittest
 from unittest.mock import patch, MagicMock
 import numpy as np
@@ -490,6 +491,112 @@ class TestRealPipelineIntegration(unittest.TestCase):
             }
         )
         self.assertIn(data["prediction"], set(encoders["Disease"].classes_))
+
+
+class TestProductionCorsOrigin(unittest.TestCase):
+    """Regression: the deployed frontend origin must be allowed to call the API.
+
+    The live backend was configured with `https://arogyaai.vercel.app`, which is
+    NOT the address the site serves from. Every preflight from the real origin
+    was rejected with 400 and no allow-origin header, so the browser blocked
+    every prediction request — the app looked broken with no server-side error.
+
+    A CORS origin has to match the served origin exactly, so this test pins the
+    real deployed origin into the default allowlist rather than a lookalike.
+    """
+
+    DEPLOYED_ORIGIN = "https://arogya-ai-clinical-decision-support-nine.vercel.app"
+
+    def test_deployed_origin_is_in_the_default_allowlist(self):
+        """The default (no-env) configuration must include the served origin."""
+        import importlib
+        import backend.core.config as cfg
+
+        # Re-read the default by clearing the override, since the process env
+        # may carry one from the surrounding shell.
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("AROGYA_CORS_ORIGINS", None)
+            importlib.reload(cfg)
+            try:
+                self.assertIn(
+                    self.DEPLOYED_ORIGIN,
+                    cfg.CORS_ORIGINS,
+                    "the deployed frontend origin is missing from CORS_ORIGINS, "
+                    "so the browser will block every request in production",
+                )
+            finally:
+                importlib.reload(cfg)
+
+    def test_lookalike_domain_is_not_used_as_the_deployed_origin(self):
+        """The near-miss domain must not stand in for the real one."""
+        from backend.core.config import CORS_ORIGINS
+
+        self.assertNotIn("https://arogyaai.vercel.app", CORS_ORIGINS)
+
+    def test_preflight_from_the_deployed_origin_succeeds(self):
+        """An OPTIONS preflight from the real origin gets 200 + allow-origin."""
+        client = TestClient(app)
+        response = client.options(
+            "/api/predict",
+            headers={
+                "Origin": self.DEPLOYED_ORIGIN,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers.get("access-control-allow-origin"),
+            self.DEPLOYED_ORIGIN,
+        )
+
+    def test_preflight_from_an_unknown_origin_is_refused(self):
+        """An origin not on the allowlist gets no allow-origin header."""
+        client = TestClient(app)
+        response = client.options(
+            "/api/predict",
+            headers={
+                "Origin": "https://attacker.example.com",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        self.assertIsNone(response.headers.get("access-control-allow-origin"))
+
+
+class TestFirestoreIndexConfiguration(unittest.TestCase):
+    """Regression: the dashboard's clinic-wide assessment query needs an index.
+
+    `listClinicAssessments` runs a collection-group query
+    (`collectionGroup('assessments').where('clinicId','==',...)`). Firestore
+    refuses to serve it without a COLLECTION_GROUP index on `assessments.clinicId`
+    and answers HTTP 400 FAILED_PRECONDITION — which the dashboard surfaced as
+    "Could not load clinic statistics."
+
+    `firestore.indexes.json` declared no index at all, so the query could never
+    succeed in any environment. This pins the required index into the repository
+    so it cannot be dropped again.
+    """
+
+    def test_assessments_clinicid_collection_group_index_is_declared(self):
+        path = os.path.join(PROJECT_ROOT, "firestore.indexes.json")
+        with open(path, encoding="utf-8") as handle:
+            config = json.load(handle)
+
+        matches = [
+            override
+            for override in config.get("fieldOverrides", [])
+            if override.get("collectionGroup") == "assessments"
+            and override.get("fieldPath") == "clinicId"
+            and any(
+                index.get("queryScope") == "COLLECTION_GROUP"
+                for index in override.get("indexes", [])
+            )
+        ]
+        self.assertTrue(
+            matches,
+            "firestore.indexes.json must declare a COLLECTION_GROUP index on "
+            "assessments.clinicId or the clinic dashboard query returns 400",
+        )
 
 
 if __name__ == "__main__":

@@ -23,8 +23,11 @@ services:
         value: arogyaai-cloud-ad667
       # Comma-separated browser origins allowed to call this API. Must include
       # the deployed frontend origin, or the browser will block every request.
+      # The site is served from the long vercel.app subdomain below, NOT
+      # `arogyaai.vercel.app`; the old value matched nothing and every
+      # prediction request failed CORS preflight (400, no allow-origin header).
       - key: AROGYA_CORS_ORIGINS
-        value: https://arogyaai.vercel.app
+        value: https://arogya-ai-clinical-decision-support-nine.vercel.app
       # Per-caller requests/minute on /api/predict. 0 disables it.
       - key: AROGYA_RATE_LIMIT_PER_MINUTE
         value: "30"

@@ -13,11 +13,47 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
+/**
+ * Registration failure messages have to outlive this component.
+ *
+ * Registration creates the Auth account BEFORE it can validate the invite or
+ * write the profile document, because the rules only allow a signed-in caller
+ * to read an invite. So `onAuthStateChanged` fires mid-registration, App stops
+ * rendering LoginPage, and the failure is then thrown by a component that is no
+ * longer mounted. Setting state there does nothing, and after the rollback
+ * signs the account out, a *fresh* LoginPage mounts showing nothing at all —
+ * the user saw registration "succeed" and then bounce back with no message.
+ *
+ * The error is therefore written to sessionStorage, which survives the unmount
+ * and is cleared on read so it cannot reappear on a later visit.
+ */
+const AUTH_ERROR_KEY = "arogyaai.authError";
+
+function stashAuthError(message: string) {
+  try {
+    sessionStorage.setItem(AUTH_ERROR_KEY, message);
+  } catch {
+    // Private mode or a storage-disabled browser: fall back to component state,
+    // which still covers every failure that happens while this page is mounted.
+  }
+}
+
+function takeStashedAuthError(): string {
+  try {
+    const message = sessionStorage.getItem(AUTH_ERROR_KEY);
+    if (message === null) return "";
+    sessionStorage.removeItem(AUTH_ERROR_KEY);
+    return message;
+  } catch {
+    return "";
+  }
+}
+
 export default function LoginPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [authError, setAuthError] = useState("");
+  const [authError, setAuthError] = useState(takeStashedAuthError);
   const [selectedRole, setSelectedRole] = useState<"patient" | "doctor">(
     "patient",
   );
@@ -141,6 +177,9 @@ export default function LoginPage() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message.replace("Firebase: ", "") : "Authentication failed.";
+      // Registration failures happen after this component has unmounted, so the
+      // message is stashed as well as set. See AUTH_ERROR_KEY above.
+      stashAuthError(msg);
       setAuthError(msg);
     } finally {
       setIsSubmitting(false);
@@ -178,6 +217,7 @@ export default function LoginPage() {
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message.replace("Firebase: ", "") : "Google authentication failed.";
+      stashAuthError(msg);
       setAuthError(msg);
     } finally {
       setIsSubmitting(false);
