@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type * as React from "react";
 import { motion } from "framer-motion";
 import { Leaf, Mail, Lock, LogIn, Building, Shield } from "lucide-react";
@@ -69,6 +69,39 @@ export default function LoginPage() {
   type RegistrationPlan =
     | { role: "patient"; clinicId: string }
     | { role: "doctor"; clinicId: string; inviteCode: string };
+
+  /**
+   * Pre-fill registration from a shareable link.
+   *
+   * A practitioner can copy two links, and neither weakens a security control:
+   *
+   *   ?clinic=RCCSO8        opens patient registration with the clinic filled in
+   *   ?invite=AROGYA-XXXX   opens practitioner registration with the code filled in
+   *
+   * The clinic link only saves typing a code the practitioner already shares
+   * verbally — the patient still cannot choose a different clinic into an
+   * existing account, and the rules still bind the account to what was claimed.
+   * The invite link still requires a real, unused, clinic-bound invite; it just
+   * spares a long code being mistyped, which was the actual failure mode before
+   * (a wrong character produced an account with no clinic and an empty
+   * dashboard, with no obvious cause).
+   */
+  useEffect(() => {
+    if (!window.location.search) return;
+    const params = new URLSearchParams(window.location.search);
+    const invite = (params.get("invite") || "").trim().toUpperCase();
+    const clinic = (params.get("clinic") || "").trim().toUpperCase();
+
+    if (invite) {
+      setIsLogin(false);
+      setSelectedRole("doctor");
+      setInviteCodeInput(invite);
+    } else if (clinic) {
+      setIsLogin(false);
+      setSelectedRole("patient");
+      setClinicIdInput(clinic);
+    }
+  }, []);
 
   /**
    * Validate the registration inputs and resolve the profile to be written.

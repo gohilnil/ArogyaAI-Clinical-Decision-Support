@@ -8,9 +8,14 @@ import {
   ClipboardCheck,
   Activity,
   User,
+  MessageSquare,
 } from "lucide-react";
-import { getPatient, listPatientAssessments } from "../services/firestore";
-import type { Assessment, Patient } from "../types";
+import {
+  getPatient,
+  listPatientAssessments,
+  listPatientLogs,
+} from "../services/firestore";
+import type { Assessment, Patient, PatientLog } from "../types";
 
 /** One patient's profile and full assessment history (newest first). */
 export default function PatientDetailPage() {
@@ -18,6 +23,7 @@ export default function PatientDetailPage() {
   const navigate = useNavigate();
   const [patient, setPatient] = useState<Patient | null>(null);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [logs, setLogs] = useState<PatientLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -35,12 +41,23 @@ export default function PatientDetailPage() {
         if (!p) {
           setPatient(null);
           setAssessments([]);
+          setLogs([]);
           setError("That patient record could not be found.");
           return;
         }
         const a = await listPatientAssessments(p.clinicId, patientId);
         setPatient(p);
         setAssessments(a);
+
+        // The diary is supplementary: a patient who never linked their account
+        // has no entries attached, and a failure here must not hide the
+        // clinical record that did load.
+        try {
+          setLogs(await listPatientLogs(p.clinicId, patientId));
+        } catch (logError) {
+          console.error("Error loading patient diary:", logError);
+          setLogs([]);
+        }
       } catch (e) {
         console.error("Error loading patient:", e);
         setError(
@@ -302,6 +319,44 @@ export default function PatientDetailPage() {
           })}
         </div>
       )}
+
+      {/* This patient's diary, shown in the same place as their clinical
+          history so a practitioner reviewing a patient does not have to
+          hunt through the clinic-wide diary tab for the right person.
+          Entries only appear here once the patient's account is linked to
+          this record; unlinked entries remain visible in the clinic diary. */}
+      <div className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-sm">
+        <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+          <MessageSquare className="text-emerald-500" size={22} />
+          <h2 className="text-xl font-black text-slate-950 tracking-tighter">
+            Patient Health Diary
+          </h2>
+        </div>
+
+        {logs.length === 0 ? (
+          <p className="text-slate-400 font-bold text-sm">
+            No diary entries are attached to this record. Entries a patient
+            submits before linking their account appear in the clinic-wide
+            diary under Patient Records.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {logs.map((log) => (
+              <div
+                key={log.id}
+                className="bg-slate-50 p-5 rounded-2xl border border-slate-100"
+              >
+                <p className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-1 mb-2">
+                  <Calendar size={12} /> {fmt(log.createdAt)}
+                </p>
+                <p className="text-slate-700 font-medium text-sm">
+                  {log.symptoms}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </motion.div>
   );
 }

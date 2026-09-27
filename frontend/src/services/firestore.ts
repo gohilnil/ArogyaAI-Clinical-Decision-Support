@@ -267,6 +267,55 @@ export async function createPatientLog(
   });
 }
 
+/**
+ * The signed-in account's own diary entries, newest first.
+ *
+ * Keyed on `userId`, NOT on `patientId`, deliberately. An account that has not
+ * yet redeemed a patient code still owns every entry it wrote, and keying on the
+ * link meant a patient's own words were hidden from them until a practitioner
+ * handed over a code — which read as data loss. The read rule is satisfied by
+ * this exact query (`resource.data.userId == uid()`), so no index is required.
+ */
+export async function listMyLogs(userId: string): Promise<PatientLog[]> {
+  const snap = await getDocs(
+    query(collection(db, "patient_logs"), where("userId", "==", userId)),
+  );
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<PatientLog, "id">) }))
+    .sort(
+      (a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0),
+    );
+}
+
+/**
+ * One patient's diary entries, newest first, for a practitioner reviewing them.
+ *
+ * Both filters are required, and for two different reasons:
+ *   * `clinicId` is what the read rule checks for a practitioner, so a query
+ *     without it is denied in full (the same query-compatibility rule that bit
+ *     the assessments subcollection).
+ *   * `patientId` narrows it to the patient being viewed.
+ * The pair needs a composite index; it is declared in firestore.indexes.json.
+ */
+export async function listPatientLogs(
+  clinicId: string,
+  patientId: string,
+): Promise<PatientLog[]> {
+  const clinic = requireClinic(clinicId);
+  const snap = await getDocs(
+    query(
+      collection(db, "patient_logs"),
+      where("clinicId", "==", clinic),
+      where("patientId", "==", patientId),
+    ),
+  );
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<PatientLog, "id">) }))
+    .sort(
+      (a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0),
+    );
+}
+
 export async function listClinicLogs(clinicId: string): Promise<PatientLog[]> {
   const clinic = requireClinic(clinicId);
   const snap = await getDocs(
