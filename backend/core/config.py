@@ -21,14 +21,18 @@ MODEL_PATH = Path(
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Model fallback chain. gemini-2.5-flash was retired for new API keys (404), and
-# newer pinned versions are quota-limited on the free tier, so an alias that
-# resolves to the current flash model is tried first.
+# Model fallback chain. Both entries are provider-maintained aliases that
+# resolve to the current flash models, which is deliberate: every PINNED model
+# name was verified to be rejected with 404 "no longer available to new users"
+# (gemini-2.5-flash, gemini-2.0-flash, and the lite variants). Pinning a version
+# here therefore stops working whenever the provider retires it, and the retired
+# entry fails on every request while looking like configuration rather than a
+# bug. The aliases are the durable choice on the free tier.
 GEMINI_MODELS = [
     m.strip()
     for m in os.getenv(
         "AROGYA_GEMINI_MODELS",
-        "gemini-flash-latest,gemini-flash-lite-latest,gemini-2.5-flash",
+        "gemini-flash-latest,gemini-flash-lite-latest",
     ).split(",")
     if m.strip()
 ]

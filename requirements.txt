@@ -27,7 +27,10 @@ pyjwt>=2.8.0
 cryptography>=42.0.0
 
 # --- LLM provider ---
-google-generativeai>=0.3.0
+# `google-generativeai` is retired: the package prints "All support ... has
+# ended" on import. `google-genai` is its supported replacement, and the
+# migration was verified against the live provider (both aliases return text).
+google-genai>=1.0.0
 
 # --- HTTP client (also backs fastapi.testclient in the test suite) ---
 httpx>=0.28.0
