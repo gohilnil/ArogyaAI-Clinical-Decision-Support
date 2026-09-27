@@ -11,6 +11,8 @@ import PatientRecords from "../../pages/PatientsPage";
 import PatientDetailPage from "../../pages/PatientDetailPage";
 import PatientDashboard from "../../pages/PatientHomePage";
 import PatientCheckup from "../../pages/PatientCheckupPage";
+import AssessmentHistoryPage from "../../pages/patient/AssessmentHistoryPage";
+import AssessmentDetailPage from "../../pages/patient/AssessmentDetailPage";
 import ProfileSettings from "../../pages/ProfilePage";
 import HelpCenter from "../../pages/HelpPage";
 import AdminLayout from "../../pages/admin/AdminLayout";
@@ -100,6 +102,18 @@ export default function AppShell({
                   <Route
                     path="/checkup"
                     element={<PatientCheckup user={user} userData={userData} />}
+                  />
+                  <Route
+                    path="/history"
+                    element={
+                      <AssessmentHistoryPage user={user} userData={userData} />
+                    }
+                  />
+                  <Route
+                    path="/assessment/:id"
+                    element={
+                      <AssessmentDetailPage user={user} userData={userData} />
+                    }
                   />
                 </>
               )}

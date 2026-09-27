@@ -338,24 +338,52 @@ service cloud.firestore {
         && request.resource.data.userId == uid()
         && request.resource.data.clinicId == myClinic();
 
-      // A patient may attach one of their OWN entries to the single patient
-      // record their account is linked to, and change nothing else.
+      // An author may change their OWN entry in exactly two ways, and nothing
+      // else.
       //
-      // Without this an entry written before the account was linked stays
-      // stranded: the entry has no patientId, so a practitioner opening it for
-      // analysis has no patient to prefill, and it never appears on the
-      // patient's own history. The entry is not editable in any other respect —
-      // the affected-keys check confines the update to `patientId`, the author
-      // check stops anyone touching another account's entry, and the value is
-      // pinned to the writer's own linked record rather than a caller-chosen id.
+      //  (a) ATTACH it to the single patient record the account is linked to.
+      //      Without this an entry written before the account was linked stays
+      //      stranded: the entry has no patientId, so a practitioner opening it
+      //      for analysis has no patient to prefill, and it never appears on the
+      //      patient's own history. The affected-keys check confines this to
+      //      `patientId`, and the value is pinned to the writer's own linked
+      //      record rather than a caller-chosen id.
+      //
+      //  (b) EDIT the content of the entry — the words, the severity, the tags,
+      //      the onset date. This is the "manage my own data" affordance: a
+      //      patient who mistyped or wants to correct an entry could previously
+      //      neither fix nor remove it. The allowlist stops the tenancy and
+      //      author fields from moving, so an edit can never reassign the entry
+      //      to another account or another clinic, and `userId`/`clinicId` are
+      //      re-checked as unchanged. Severity is range-checked at the boundary
+      //      (1–5) so a malformed value never lands in the record.
+      //
+      // Both branches are gated on the caller being the entry's author.
       allow update: if isSignedIn()
         && resource.data.userId == uid()
-        && isPatient()
-        && myPatientId() != ''
-        && request.resource.data.patientId == myPatientId()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientId']);
+        && (
+          (
+            isPatient()
+            && myPatientId() != ''
+            && request.resource.data.patientId == myPatientId()
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientId'])
+          )
+          ||
+          (
+            request.resource.data.userId == resource.data.userId
+            && request.resource.data.clinicId == resource.data.clinicId
+            && request.resource.data.get('severity', 3) >= 1
+            && request.resource.data.get('severity', 5) <= 5
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                 'symptoms', 'severity', 'tags', 'onset', 'updatedAt'
+               ])
+          )
+        );
 
-      allow delete: if false;
+      // A patient may remove their OWN entry. Scoped to the author, so a
+      // practitioner reading the clinic diary can never delete a patient's
+      // words. Entries are otherwise retained.
+      allow delete: if isSignedIn() && resource.data.userId == uid();
     }
 
     // ---------- clinics ----------

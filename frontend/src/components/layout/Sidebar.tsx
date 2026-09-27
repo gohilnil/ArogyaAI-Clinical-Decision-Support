@@ -13,6 +13,7 @@ import {
   HeartPulse,
   PlusCircle,
   ShieldCheck,
+  ClipboardList,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import type { User as FirebaseUser } from "firebase/auth";
@@ -101,7 +102,12 @@ export default function Sidebar({
         : [
             { name: "My Health", path: "/", icon: <HeartPulse size={22} /> },
             {
-              name: "Symptom Logger",
+              name: "Health History",
+              path: "/history",
+              icon: <ClipboardList size={22} />,
+            },
+            {
+              name: "Symptom Diary",
               path: "/checkup",
               icon: <PlusCircle size={22} />,
             },
@@ -109,6 +115,11 @@ export default function Sidebar({
               name: "Profile Settings",
               path: "/profile",
               icon: <Settings size={22} />,
+            },
+            {
+              name: "Help Center",
+              path: "/help",
+              icon: <HelpCircle size={22} />,
             },
           ];
 

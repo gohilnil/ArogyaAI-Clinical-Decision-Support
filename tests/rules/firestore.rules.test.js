@@ -660,11 +660,92 @@ test("a patient CANNOT list the clinic log feed", async () => {
   );
 });
 
-test("logs are append-only", async () => {
-  await assertFails(
-    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), { symptoms: "edited" }),
+// A DIARY entry belongs to the patient who wrote it, so the author may correct
+// or remove their own words. This is not the clinical record: an ASSESSMENT is
+// still append-only (asserted further down), and nothing here lets a patient
+// touch an assessment, a diagnosis, or another account's entry.
+test("an author can edit their own log entry", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), {
+      symptoms: "headache, milder today",
+      updatedAt: serverTimestamp(),
+    }),
   );
-  await assertFails(deleteDoc(doc(as(PATIENT_1), "patient_logs", "log1")));
+});
+
+test("an author can add structured fields to their own entry", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), {
+      symptoms: "headache",
+      severity: 3,
+      tags: ["Headache", "Sleep"],
+      onset: "2026-09-25",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("a patient CANNOT edit another account's entry", async () => {
+  await assertFails(
+    updateDoc(doc(as(PATIENT_2), "patient_logs", "log1"), {
+      symptoms: "not mine",
+    }),
+  );
+});
+
+test("a doctor CANNOT edit a patient's entry", async () => {
+  // A practitioner reads the clinic diary, but never rewrites a patient's words.
+  await assertFails(
+    updateDoc(doc(as(DOCTOR_A), "patient_logs", "log1"), {
+      symptoms: "rewritten by clinic",
+    }),
+  );
+});
+
+test("editing cannot move the entry's author, clinic or patient", async () => {
+  // The allowlist is what keeps the tenancy fields pinned; without it an "edit"
+  // could reassign the entry to another account or another clinic.
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), {
+      symptoms: "same words", userId: "patient-2",
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), {
+      symptoms: "same words", clinicId: "CLIN02",
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), {
+      symptoms: "same words", patientId: "P002",
+    }),
+  );
+});
+
+test("severity is range-checked at the boundary", async () => {
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), { severity: 9 }),
+  );
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), { severity: 0 }),
+  );
+});
+
+test("an author can delete their own log entry", async () => {
+  await assertSucceeds(deleteDoc(doc(as(PATIENT_1), "patient_logs", "log1")));
+});
+
+test("a patient CANNOT delete another account's entry", async () => {
+  await assertFails(deleteDoc(doc(as(PATIENT_2), "patient_logs", "log1")));
+});
+
+test("a doctor CANNOT delete a patient's entry", async () => {
+  await assertFails(deleteDoc(doc(as(DOCTOR_A), "patient_logs", "log1")));
+});
+
+test("an admin CANNOT delete a patient's entry", async () => {
+  // An operator has no clinical-data access; the diary is clinical data.
+  await assertFails(deleteDoc(doc(as(ADMIN), "patient_logs", "log1")));
 });
 
 // An entry written before the account was linked carries no patientId, so it

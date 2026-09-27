@@ -9,6 +9,10 @@ import {
   Wind,
   MessageSquare,
   AlertCircle,
+  HeartPulse,
+  Sparkles,
+  Link2,
+  Gauge,
 } from "lucide-react";
 
 interface Section {
@@ -78,6 +82,42 @@ const SECTIONS: Section[] = [
     body: [
       "Patients log symptoms from their own portal; entries reach the clinic immediately and are visible in Patient Records under Health Diaries. \"Analyze with AI\" opens the diagnostic tool with the entry's symptoms preloaded, and prefills the patient when the entry is attached to a record.",
       "Entries carry a Linked or No linked record badge. An unlinked entry still reaches the clinic but cannot be filed against a patient until the patient links their account.",
+    ],
+  },
+  {
+    icon: Link2,
+    title: "For patients: linking your record",
+    tone: "bg-emerald-100 text-emerald-600",
+    body: [
+      "Your health record exists as soon as your practitioner registers you, but it is not connected to your login until you link it. Your practitioner gives you a patient code — a long, unguessable string that is the record's own identifier. Enter it in Settings under Health record and your assessment history appears.",
+      "The code is a capability: anyone holding it can read that record, so keep it private and do not shorten it. Linking does not create anything or move data; it connects your account to the record that already exists. You can unlink at any time, and your diary is kept either way.",
+    ],
+  },
+  {
+    icon: HeartPulse,
+    title: "For patients: reading your results",
+    tone: "bg-rose-100 text-rose-600",
+    body: [
+      "Your Health History lists every assessment your practitioner has recorded for you. Open one to see what you reported, the recorded result, the model's confidence score for it, and the Ayurvedic context your practitioner saw.",
+      "The score is the model's raw output, not a probability that the result is correct. Below the 35% gate the result is deliberately withheld and shown as requiring review, so an unreliable guess is never presented to you as a finding.",
+    ],
+  },
+  {
+    icon: Sparkles,
+    title: "For patients: the model explanation",
+    tone: "bg-purple-100 text-purple-600",
+    body: [
+      "Where an assessment carries one, \"What drove this result\" shows the factors the model weighted most when it produced that result. Each factor is marked as supporting or opposing the recorded condition, with a bar scaled to its relative weight within that single result.",
+      "These are terms in the model's own score, not causes. A longer bar means the model leaned on that input more — it does not mean the input caused the condition, and it is not medical advice. Not every assessment has an explanation: it is shown only when the model produced one.",
+    ],
+  },
+  {
+    icon: Gauge,
+    title: "For patients: the numbers you see",
+    tone: "bg-amber-100 text-amber-600",
+    body: [
+      "The diary shows how many entries you have logged, how recently, and which of the last 14 days have an entry. These are counts of your own records, not health metrics — the diary has no consistent scale to measure severity over time, so no trend is shown.",
+      "If your records cannot be loaded, the figures are blanked and a retry is offered rather than showing zeros, so an empty card never reads as \"you have no records\" when the truth is a failed request.",
     ],
   },
 ];

@@ -17,6 +17,7 @@ import {
   query,
   where,
   updateDoc,
+  deleteDoc,
   deleteField,
   serverTimestamp,
 } from "firebase/firestore";
@@ -252,6 +253,26 @@ export async function listPatientAssessments(
     );
 }
 
+/**
+ * One assessment by its id, scoped to a patient the caller may read.
+ *
+ * The path carries the patient id as well as the assessment id, and both come
+ * from the caller's own linked record rather than a route parameter, so this
+ * cannot be pointed at another patient's history. A missing document returns
+ * null — the caller renders "not found" rather than treating it as an error.
+ */
+export async function getAssessment(
+  patientId: string,
+  assessmentId: string,
+): Promise<Assessment | null> {
+  if (!patientId || !assessmentId) return null;
+  const snap = await getDoc(
+    doc(db, "patients", patientId, "assessments", assessmentId),
+  );
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...(snap.data() as Omit<Assessment, "id">) };
+}
+
 /** Every assessment in the caller's clinic, newest first. */
 export async function listClinicAssessments(
   clinicId: string,
@@ -274,22 +295,69 @@ export async function listClinicAssessments(
 // patient_logs
 // ---------------------------------------------------------------------------
 
+export interface NewLogInput {
+  severity?: number;
+  tags?: string[];
+  onset?: string;
+}
+
 export async function createPatientLog(
   userId: string,
   email: string | null,
   clinicId: string,
   symptoms: string,
   patientId?: string,
-): Promise<void> {
+  extra: NewLogInput = {},
+): Promise<string> {
   const clinic = requireClinic(clinicId);
-  await addDoc(collection(db, "patient_logs"), {
+  const record: Record<string, unknown> = {
     userId,
     email: email ?? "",
     symptoms: symptoms.trim(),
     clinicId: clinic,
     patientId: patientId ?? "",
     createdAt: serverTimestamp(),
-  });
+  };
+  if (extra.severity) record.severity = extra.severity;
+  if (extra.tags && extra.tags.length > 0) record.tags = extra.tags;
+  if (extra.onset) record.onset = extra.onset;
+
+  const ref = await addDoc(collection(db, "patient_logs"), record);
+  return ref.id;
+}
+
+/**
+ * Edit one of the caller's OWN diary entries.
+ *
+ * The rules confine this to the entry's author and to the content fields — the
+ * entry cannot be reassigned to another account, moved to another clinic, or
+ * re-dated into the past. `updatedAt` is written so an edit is visible rather
+ * than silent.
+ */
+export async function updateMyLog(
+  logId: string,
+  changes: { symptoms: string; severity?: number; tags?: string[]; onset?: string },
+): Promise<void> {
+  if (!changes.symptoms.trim()) {
+    throw new DomainError("An entry cannot be saved empty.");
+  }
+  const update: Record<string, unknown> = {
+    symptoms: changes.symptoms.trim(),
+    updatedAt: serverTimestamp(),
+  };
+  // Absent values are written as empty rather than left stale, so clearing a
+  // severity or a tag actually removes it from the entry.
+  update.severity = changes.severity ?? deleteField();
+  update.tags = changes.tags && changes.tags.length > 0 ? changes.tags : deleteField();
+  update.onset = changes.onset || deleteField();
+
+  await updateDoc(doc(db, "patient_logs", logId), update);
+}
+
+/** Remove one of the caller's OWN diary entries. The rules permit this only for
+ *  the author; a clinic practitioner cannot delete a patient's entry. */
+export async function deleteMyLog(logId: string): Promise<void> {
+  await deleteDoc(doc(db, "patient_logs", logId));
 }
 
 /**

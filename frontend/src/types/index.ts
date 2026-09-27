@@ -123,6 +123,20 @@ export interface PatientLog {
   email?: string;
   symptoms?: string;
   clinicId?: string;
+  /** How intense the entry felt, 1 (mild) to 5 (severe). Optional: entries
+   *  written before this existed simply have no value, and the UI omits it
+   *  rather than guessing a default. */
+  severity?: number;
+  /** Short quick-pick labels the patient attached, e.g. "Sleep", "Digestion".
+   *  These are the patient's own tags, not a clinical classification. */
+  tags?: string[];
+  /** When the symptoms began, as the patient recorded it ("YYYY-MM-DD"). Kept
+   *  separate from `createdAt` because an entry may be logged about a bout that
+   *  started earlier. */
+  onset?: string;
+  /** Set when the patient edits their own entry, so a later change is visible
+   *  in the record rather than silent. */
+  updatedAt?: FirestoreTimestamp;
   createdAt?: FirestoreTimestamp;
 }
 
