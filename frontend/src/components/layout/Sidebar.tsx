@@ -12,6 +12,7 @@ import {
   HelpCircle,
   HeartPulse,
   PlusCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
 import type { User as FirebaseUser } from "firebase/auth";
@@ -34,25 +35,15 @@ export default function Sidebar({
   const userRole = userData?.role;
 
   const navItems =
-    userRole === "doctor"
+    userRole === "admin"
       ? [
           {
-            name: "Clinic Dashboard",
-            path: "/",
-            icon: <LayoutDashboard size={22} />,
+            name: "Admin Panel",
+            path: "/admin",
+            icon: <ShieldCheck size={22} />,
           },
           {
-            name: "AI Diagnostic",
-            path: "/diagnose",
-            icon: <BrainCircuit size={22} />,
-          },
-          {
-            name: "Patient Records",
-            path: "/patients",
-            icon: <Users size={22} />,
-          },
-          {
-            name: "Clinic Profile",
+            name: "Profile Settings",
             path: "/profile",
             icon: <Settings size={22} />,
           },
@@ -62,19 +53,47 @@ export default function Sidebar({
             icon: <HelpCircle size={22} />,
           },
         ]
-      : [
-          { name: "My Health", path: "/", icon: <HeartPulse size={22} /> },
-          {
-            name: "Symptom Logger",
-            path: "/checkup",
-            icon: <PlusCircle size={22} />,
-          },
-          {
-            name: "Profile Settings",
-            path: "/profile",
-            icon: <Settings size={22} />,
-          },
-        ];
+      : userRole === "doctor"
+        ? [
+            {
+              name: "Clinic Dashboard",
+              path: "/",
+              icon: <LayoutDashboard size={22} />,
+            },
+            {
+              name: "AI Diagnostic",
+              path: "/diagnose",
+              icon: <BrainCircuit size={22} />,
+            },
+            {
+              name: "Patient Records",
+              path: "/patients",
+              icon: <Users size={22} />,
+            },
+            {
+              name: "Clinic Profile",
+              path: "/profile",
+              icon: <Settings size={22} />,
+            },
+            {
+              name: "Help Center",
+              path: "/help",
+              icon: <HelpCircle size={22} />,
+            },
+          ]
+        : [
+            { name: "My Health", path: "/", icon: <HeartPulse size={22} /> },
+            {
+              name: "Symptom Logger",
+              path: "/checkup",
+              icon: <PlusCircle size={22} />,
+            },
+            {
+              name: "Profile Settings",
+              path: "/profile",
+              icon: <Settings size={22} />,
+            },
+          ];
 
   return (
     <aside

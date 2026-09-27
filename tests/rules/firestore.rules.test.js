@@ -47,6 +47,8 @@ const PATIENT_2 = { uid: "patient-2", role: "patient", clinicId: "CLIN01", email
 // Records created before that field existed look like this, and they are the
 // ones most likely to carry a wrong name — so the update path must handle them.
 const PATIENT_3 = { uid: "patient-3", role: "patient", clinicId: "CLIN01", email: "p3@test.test", patientId: "P003" };
+// The platform operator. Provisioned out-of-band, like the first invites were.
+const ADMIN = { uid: "admin-1", role: "admin", clinicId: "CLIN01", email: "admin@arogyaai.test" };
 
 /** A context whose caller has a provisioned users/{uid} profile. */
 function as(user) {
@@ -60,7 +62,7 @@ function anon() {
 async function seed() {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    for (const u of [DOCTOR_A, DOCTOR_B, PATIENT_1, PATIENT_2, PATIENT_3]) {
+    for (const u of [DOCTOR_A, DOCTOR_B, PATIENT_1, PATIENT_2, PATIENT_3, ADMIN]) {
       const profile = { email: u.email, role: u.role, clinicId: u.clinicId };
       if (u.patientId) profile.patientId = u.patientId;
       await setDoc(doc(db, "users", u.uid), profile);
@@ -779,5 +781,100 @@ test("a collection with no rule is denied by default", async () => {
   await assertFails(getDoc(doc(as(DOCTOR_A), "audit_logs", "anything")));
   await assertFails(
     setDoc(doc(as(DOCTOR_A), "audit_logs", "anything"), { x: 1 }),
+  );
+});
+
+// ---------------------------------------------------------------------------
+// admin — account management only, deliberately NOT clinical data
+// ---------------------------------------------------------------------------
+test("an admin can read any user profile", async () => {
+  await assertSucceeds(getDoc(doc(as(ADMIN), "users", "doctor-a")));
+  await assertSucceeds(getDoc(doc(as(ADMIN), "users", "patient-1")));
+});
+
+test("an admin can correct a user's clinic", async () => {
+  // The strand-an-account case: a profile registered into the wrong clinic.
+  await assertSucceeds(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), { clinicId: "CLIN02" }),
+  );
+});
+
+test("an admin can correct a user's role", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), { role: "doctor" }),
+  );
+});
+
+test("an admin CANNOT set an unknown role", async () => {
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), { role: "superadmin" }),
+  );
+});
+
+test("an admin CANNOT set an invalid clinic id", async () => {
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), { clinicId: "NOPE" }),
+  );
+});
+
+test("an admin update cannot smuggle extra fields", async () => {
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), {
+      clinicId: "CLIN02",
+      selfGranted: true,
+    }),
+  );
+});
+
+test("a non-admin CANNOT correct another user's profile", async () => {
+  await assertFails(
+    updateDoc(doc(as(DOCTOR_A), "users", "patient-1"), { clinicId: "CLIN02" }),
+  );
+});
+
+test("an admin cannot self-mint an admin profile at registration", async () => {
+  // The admin path for creation is deliberately absent: provisioning happens
+  // out-of-band, so no client — including a real admin — can create one.
+  await assertFails(
+    setDoc(doc(as(ADMIN), "users", "self-made-admin"), {
+      email: "x@y.test", role: "admin", clinicId: "CLIN01",
+    }),
+  );
+});
+
+test("an admin can delete a user profile", async () => {
+  await assertSucceeds(deleteDoc(doc(as(ADMIN), "users", "patient-2")));
+  await assertFails(deleteDoc(doc(as(DOCTOR_A), "users", "patient-2")));
+});
+
+test("an admin can list invites", async () => {
+  await assertSucceeds(getDocs(collection(as(ADMIN), "invites")));
+});
+
+test("an admin can revoke an UNUSED invite but not a used one", async () => {
+  await assertSucceeds(deleteDoc(doc(as(ADMIN), "invites", "VALID1")));
+  await assertFails(deleteDoc(doc(as(ADMIN), "invites", "USED01")));
+});
+
+test("admin gains NOTHING over clinical data", async () => {
+  // Separation of duties: the operator who manages accounts still cannot read
+  // a patient's identity, assessments, or diary. These are the privacy line.
+  await assertFails(getDoc(doc(as(ADMIN), "patients", "P001")));
+  await assertFails(
+    getDoc(doc(as(ADMIN), "patients", "P001", "assessments", "A001")),
+  );
+  await assertFails(getDoc(doc(as(ADMIN), "patient_logs", "log1")));
+  await assertFails(
+    getDocs(
+      query(
+        collectionGroup(as(ADMIN), "assessments"),
+        where("clinicId", "==", "CLIN01"),
+      ),
+    ),
+  );
+  await assertFails(
+    addDoc(collection(as(ADMIN), "patients"), {
+      name: "Admin Patient", clinicId: "CLIN01", createdBy: "admin-1",
+    }),
   );
 });

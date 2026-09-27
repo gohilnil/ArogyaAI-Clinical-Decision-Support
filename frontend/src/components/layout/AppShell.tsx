@@ -13,6 +13,7 @@ import PatientDashboard from "../../pages/PatientHomePage";
 import PatientCheckup from "../../pages/PatientCheckupPage";
 import ProfileSettings from "../../pages/ProfilePage";
 import HelpCenter from "../../pages/HelpPage";
+import AdminPanel from "../../pages/AdminPage";
 import type { UserData } from "../../types";
 
 export default function AppShell({
@@ -103,6 +104,9 @@ export default function AppShell({
                 element={<ProfileSettings user={user} userData={userData} />}
               />
               <Route path="/help" element={<HelpCenter />} />
+              {/* The panel itself re-checks the role and renders an explicit
+                  access-denied state for a non-admin reaching the URL. */}
+              <Route path="/admin" element={<AdminPanel userData={userData} />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

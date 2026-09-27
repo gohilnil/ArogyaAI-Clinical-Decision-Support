@@ -49,6 +49,16 @@ service cloud.firestore {
       return isSignedIn() && profile().role == 'patient';
     }
 
+    // Admin is a platform operator, provisioned out-of-band like the first
+    // invites were. An admin manages ACCOUNTS and ONBOARDING (who exists, which
+    // clinic they belong to, which invites are live) and deliberately gains
+    // NOTHING over clinical data: patients, assessments and diaries stay
+    // governed by the clinic rules below. Separation of duties — the operator
+    // who can create an account still cannot read a patient's history.
+    function isAdmin() {
+      return isSignedIn() && profile().role == 'admin';
+    }
+
     function myClinic() {
       return profile().clinicId;
     }
@@ -91,10 +101,14 @@ service cloud.firestore {
     }
 
     // ---------- users ----------
-    // A user may read only their own profile. Creation is constrained by role:
-    // `patient` is free, `doctor` requires an existing invite document.
+    // A user may read only their own profile; an admin may read any profile,
+    // because account management is what admin exists for. Creation is
+    // constrained by role: `patient` is free, `doctor` requires an existing
+    // invite document, and `admin` cannot be self-assigned — an admin profile
+    // is provisioned out-of-band (console / Admin SDK), so a compromised
+    // client cannot mint an operator account.
     match /users/{userId} {
-      allow read: if isSignedIn() && userId == uid();
+      allow read: if isSignedIn() && (userId == uid() || isAdmin());
 
       allow create: if isSignedIn()
         && userId == uid()
@@ -115,24 +129,49 @@ service cloud.firestore {
           )
         );
 
-      // role, clinicId and email are immutable: an update may not change them.
-      // A patient account may additionally (un)link itself to a patient record,
-      // but only within its own clinic.
-      allow update: if isSignedIn()
-        && userId == uid()
-        && request.resource.data.role == resource.data.role
-        && request.resource.data.clinicId == resource.data.clinicId
-        && request.resource.data.email == resource.data.email
-        && (
-          resource.data.role == 'doctor'
-          || validPatientLink(
-               request.resource.data.get('patientId', ''),
-               resource.data.clinicId
-             )
+      // role, clinicId and email are immutable to their OWNER: an update may
+      // not change them, and a patient account may additionally (un)link
+      // itself to a patient record within its own clinic.
+      //
+      // An admin may correct role, clinicId or email on ANY account, because
+      // account management is exactly what the role exists for — a mistyped
+      // clinic at registration otherwise strands the account permanently
+      // (there is a live example). The admin path still requires the account to
+      // remain internally consistent: a patient's patientId must belong to the
+      // account's clinic, and the role must be one of the three known roles.
+      allow update: if (
+          (isSignedIn() && userId == uid()
+            && request.resource.data.role == resource.data.role
+            && request.resource.data.clinicId == resource.data.clinicId
+            && request.resource.data.email == resource.data.email
+            && (
+              resource.data.role == 'doctor'
+              || validPatientLink(
+                   request.resource.data.get('patientId', ''),
+                   resource.data.clinicId
+                 )
+            )
+          )
+          || (
+            isAdmin()
+            && request.resource.data.role in ['patient', 'doctor', 'admin']
+            && isClinicId(request.resource.data.clinicId)
+            && (
+              request.resource.data.role != 'patient'
+              || validPatientLink(
+                   request.resource.data.get('patientId', ''),
+                   request.resource.data.clinicId
+                 )
+            )
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+                 'role', 'clinicId', 'email', 'patientId', 'inviteCode'
+               ])
+          )
         );
 
-      // Accounts are removed through the Auth admin API, never from a client.
-      allow delete: if false;
+      // The Auth account itself is removed through the Auth admin API; the
+      // admin may clear the Firestore profile that belongs to it.
+      allow delete: if isAdmin();
     }
 
     // ---------- invites ----------
@@ -150,7 +189,10 @@ service cloud.firestore {
     // every invite and its clinicId.
     match /invites/{code} {
       allow get: if isSignedIn();
-      allow list: if false;
+      // Listing stays denied for ordinary accounts — a code is a capability
+      // that must be presented, not discovered. An admin lists invites because
+      // auditing which invites are live is part of account management.
+      allow list: if isAdmin();
 
       allow create: if isDoctor()
         && code.size() >= 26
@@ -166,7 +208,10 @@ service cloud.firestore {
         && request.resource.data.used == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']);
 
-      allow delete: if false;
+      // An admin may revoke (delete) an unused invite — e.g. one shared in
+      // error. A used invite is retained: deletion would erase the record of
+      // which code let which account in.
+      allow delete: if isAdmin() && resource.data.used == false;
     }
 
     // ---------- patients ----------

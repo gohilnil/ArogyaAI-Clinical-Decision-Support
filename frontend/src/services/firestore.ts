@@ -17,10 +17,23 @@ import {
   query,
   where,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import type { AnalysisResult, Assessment, Patient, PatientLog } from "../types";
+import type { AnalysisResult, Assessment, Patient, PatientLog, UserData } from "../types";
+
+/** An account profile with its document id, as the admin panel lists it. */
+export interface UserDataWithId extends UserData {
+  id: string;
+}
+
+/** One invite as the admin panel lists it. */
+export interface InviteRecord {
+  code: string;
+  used: boolean;
+  clinicId: string;
+}
 
 /** Below this ML confidence the system declines to name a condition. */
 export const CONFIDENCE_THRESHOLD = 35;
@@ -391,6 +404,46 @@ export async function listClinicLogs(clinicId: string): Promise<PatientLog[]> {
     .sort(
       (a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0),
     );
+}
+
+// ---------------------------------------------------------------------------
+// admin — account management only
+// ---------------------------------------------------------------------------
+
+/** Every account profile. Admin-only by rule; the query needs no extra filter. */
+export async function listAllUsers(): Promise<UserDataWithId[]> {
+  const snap = await getDocs(collection(db, "users"));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<UserDataWithId, "id">) }))
+    .sort((a, b) => (a.email || "").localeCompare(b.email || ""));
+}
+
+/** Every invite, used and unused. Admin-only by rule. */
+export async function listAllInvites(): Promise<InviteRecord[]> {
+  const snap = await getDocs(collection(db, "invites"));
+  return snap.docs
+    .map((d) => ({ code: d.id, ...(d.data() as Omit<InviteRecord, "code">) }))
+    .sort((a, b) => Number(a.used) - Number(b.used));
+}
+
+/**
+ * Correct an account's role, clinic, or email. Admin-only by rule; the rules
+ * still validate consistency (role in the known set, 6-char clinic), so this
+ * call only needs to pass the change through.
+ */
+export async function adminUpdateUser(
+  userId: string,
+  changes: { role?: string; clinicId?: string; email?: string },
+): Promise<void> {
+  await updateDoc(doc(db, "users", userId), changes);
+}
+
+/**
+ * Revoke an unused invite. Used invites are retained by rule: deleting one
+ * would erase the record of which code let which account in.
+ */
+export async function adminRevokeInvite(code: string): Promise<void> {
+  await deleteDoc(doc(db, "invites", code));
 }
 
 // ---------------------------------------------------------------------------
