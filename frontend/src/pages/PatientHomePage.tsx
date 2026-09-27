@@ -14,6 +14,7 @@ import {
   listMyLogs,
   listPatientAssessments,
 } from "../services/firestore";
+import { dateOnly } from "../lib/format";
 import type { Assessment, Patient, PatientLog, UserData } from "../types";
 
 // --- PATIENT DASHBOARD ---
@@ -74,8 +75,7 @@ export default function PatientDashboard({
     load();
   }, [linked, user, userData]);
 
-  const fmt = (t?: { toDate: () => Date }) =>
-    t ? t.toDate().toLocaleDateString() : "—";
+  const fmt = dateOnly;
 
   return (
     <motion.div

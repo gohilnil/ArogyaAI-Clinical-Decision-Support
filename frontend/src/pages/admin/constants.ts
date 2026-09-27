@@ -9,9 +9,6 @@ import type { FirestoreTimestamp } from "../../types";
 export const ROLES = ["patient", "doctor", "admin"] as const;
 export const STATUSES = ["approved", "pending", "rejected"] as const;
 
-export type Role = (typeof ROLES)[number];
-export type Status = (typeof STATUSES)[number];
-
 /** An account's approval state. Absent = approved (accounts predate the field). */
 export const statusOf = (u: { status?: string }): string => u.status || "approved";
 
@@ -39,7 +36,5 @@ export const titleCase = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 export const fmtWhen = (t?: FirestoreTimestamp): string =>
   t ? t.toDate().toLocaleString() : "—";
 
-export const th =
-  "p-5 font-black text-slate-400 text-xs uppercase tracking-widest text-left";
 export const field =
   "p-3 rounded-xl border-2 border-slate-200 focus:border-purple-400 outline-none font-bold text-sm";

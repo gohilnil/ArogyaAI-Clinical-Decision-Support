@@ -66,35 +66,9 @@ export function DistributionBars({
   );
 }
 
-export function StatTile({
-  label,
-  value,
-  icon,
-  tone,
-  loading,
-}: {
-  label: string;
-  value: number | string;
-  icon: ReactNode;
-  tone: string;
-  loading?: boolean;
-}) {
-  return (
-    <div className="bg-white p-6 rounded-[1.75rem] border border-slate-200/60 shadow-sm flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${tone}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">
-          {label}
-        </p>
-        <p className="text-3xl font-black text-slate-950 leading-tight">
-          {loading ? "…" : value}
-        </p>
-      </div>
-    </div>
-  );
-}
+// StatTile is NOT defined here. It lives in ../../components/ui/StatTile so the
+// clinical and admin pages render the same figure identically — a second copy
+// in this file would be a drift waiting to happen.
 
 export function PanelCard({
   title,

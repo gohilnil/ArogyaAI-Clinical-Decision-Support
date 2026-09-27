@@ -7,6 +7,7 @@ import {
   Calendar,
   BrainCircuit,
   ChevronRight,
+  ChevronLeft,
   Search,
   X,
   ArrowUpDown,
@@ -20,6 +21,8 @@ import {
   listClinicLogs,
   listPatients,
 } from "../services/firestore";
+import { fullDate, relativeTime } from "../lib/format";
+import { StatTile } from "../components/ui/StatTile";
 import type {
   Assessment,
   FirestoreTimestamp,
@@ -38,23 +41,8 @@ interface PatientSummary {
 type SortKey = "recent" | "name" | "visits";
 type DiaryFilter = "all" | "linked" | "unlinked";
 
-/** "2h ago" is easier to scan than a bare date for recent activity. */
-function relativeTime(t?: FirestoreTimestamp): string {
-  if (!t) return "—";
-  const then = t.toDate().getTime();
-  const mins = Math.floor((Date.now() - then) / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return t.toDate().toLocaleDateString();
-}
-
-function fullDate(t?: FirestoreTimestamp): string {
-  return t ? t.toDate().toLocaleString() : "—";
-}
+/** How many rows one page of the patients list shows. */
+const PAGE_SIZE = 12;
 
 // --- CLOUD-CONNECTED PATIENT RECORDS ---
 // Lists PEOPLE, each summarised by their most recent clinical event — not one
@@ -71,6 +59,10 @@ export default function PatientRecords({ userData }: { userData: UserData | null
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortKey>("recent");
   const [diaryFilter, setDiaryFilter] = useState<DiaryFilter>("all");
+  /** 1-based page of the patients table. Reset whenever the result set
+   *  changes shape underneath it, so the view can never sit on a page that
+   *  the current filters no longer have. */
+  const [page, setPage] = useState(1);
 
   const navigate = useNavigate();
 
@@ -194,6 +186,25 @@ export default function PatientRecords({ userData }: { userData: UserData | null
     };
   }, [patients, byPatient, patientLogs]);
 
+  // --- paging -------------------------------------------------------------
+  // The list used to render every patient at once. That is fine at a demo
+  // scale and wrong at a real one: a clinic with a few hundred people would
+  // paint every row on every keystroke of the search box. Paging is applied to
+  // the FILTERED list, so the page count follows the search rather than the
+  // whole clinic.
+  const totalPages = Math.max(1, Math.ceil(visiblePatients.length / PAGE_SIZE));
+
+  useEffect(() => {
+    // A filter, sort or search change can leave the view past the last page.
+    // Clamping here means the table never renders empty while results exist.
+    setPage(1);
+  }, [search, sort, activeTab]);
+
+  const pagePatients = useMemo(
+    () => visiblePatients.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [visiblePatients, page],
+  );
+
   const openPatient = (id: string) => navigate(`/patients/${id}`);
 
   const analyze = (log: PatientLog) =>
@@ -204,26 +215,9 @@ export default function PatientRecords({ userData }: { userData: UserData | null
       },
     });
 
-  const tile = (
-    label: string,
-    value: number | string,
-    Icon: typeof Users,
-    tone: string,
-  ) => (
-    <div className="bg-white p-6 rounded-[1.75rem] border border-slate-200/60 shadow-sm flex items-center gap-4">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${tone}`}>
-        <Icon size={22} />
-      </div>
-      <div>
-        <p className="text-slate-400 font-black uppercase tracking-widest text-[10px]">
-          {label}
-        </p>
-        <p className="text-3xl font-black text-slate-950 leading-tight">
-          {loading ? "…" : value}
-        </p>
-      </div>
-    </div>
-  );
+  /** The tiles render "…" while loading and "—" on a failed load, never a
+   *  misleading zero — a request that failed is not an empty clinic. */
+  const show = (v: number) => (loading ? "…" : error ? "—" : String(v));
 
   return (
     <motion.div
@@ -236,16 +230,44 @@ export default function PatientRecords({ userData }: { userData: UserData | null
           Patient Records
         </h1>
         <p className="text-slate-500 font-medium text-lg">
-          Secure clinical history for Clinic ID:{" "}
-          <strong>{userData?.clinicId || "—"}</strong>.
+          Secure clinical history for Clinic ID{" "}
+          <strong className="font-mono text-slate-700">
+            {userData?.clinicId || "—"}
+          </strong>
+          .
         </p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {tile("Patients", stats.total, Users, "bg-emerald-100 text-emerald-600")}
-        {tile("With records", stats.withRecords, ClipboardList, "bg-indigo-100 text-indigo-600")}
-        {tile("Awaiting first visit", stats.awaiting, AlertCircle, "bg-amber-100 text-amber-600")}
-        {tile("Diary entries", stats.diaries, MessageSquare, "bg-blue-100 text-blue-600")}
+        <StatTile
+          label="Patients"
+          value={show(stats.total)}
+          icon={<Users size={22} />}
+          tone="bg-emerald-100 text-emerald-600"
+        />
+        <StatTile
+          label="With records"
+          value={show(stats.withRecords)}
+          icon={<ClipboardList size={22} />}
+          tone="bg-indigo-100 text-indigo-600"
+        />
+        <StatTile
+          label="Awaiting first visit"
+          value={show(stats.awaiting)}
+          icon={<AlertCircle size={22} />}
+          tone="bg-amber-100 text-amber-600"
+        />
+        <StatTile
+          label="Diary entries"
+          value={show(stats.diaries)}
+          icon={<MessageSquare size={22} />}
+          tone="bg-blue-100 text-blue-600"
+          note={
+            stats.unlinkedDiaries > 0
+              ? `${stats.unlinkedDiaries} not linked to a record`
+              : undefined
+          }
+        />
       </div>
 
       {/* Tabs, search and sort live together so the whole page reads as one
@@ -429,7 +451,7 @@ export default function PatientRecords({ userData }: { userData: UserData | null
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {visiblePatients.map((pt) => {
+                    {pagePatients.map((pt) => {
                       const summary = byPatient.get(pt.id);
                       const hasRecord = Boolean(summary);
                       return (
@@ -502,6 +524,45 @@ export default function PatientRecords({ userData }: { userData: UserData | null
                   </tbody>
                 </table>
               </div>
+
+              {/* Paging controls. Shown only when there is more than one page,
+                  so a small clinic never sees furniture it cannot use. */}
+              {totalPages > 1 && (
+                <div className="px-5 py-4 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <p className="text-xs font-black text-slate-500">
+                    Showing{" "}
+                    <span className="text-slate-700">
+                      {(page - 1) * PAGE_SIZE + 1}–
+                      {Math.min(page * PAGE_SIZE, visiblePatients.length)}
+                    </span>{" "}
+                    of {visiblePatients.length} patient
+                    {visiblePatients.length === 1 ? "" : "s"}
+                    {search ? " matching your search" : ""}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      aria-label="Previous page of patients"
+                      className="px-4 py-2 rounded-xl border-2 border-slate-200 font-black text-sm disabled:opacity-40 flex items-center gap-1.5 hover:border-emerald-300 transition-colors"
+                    >
+                      <ChevronLeft size={15} /> Prev
+                    </button>
+                    <span className="text-xs font-black text-slate-500 tabular-nums px-1">
+                      {page} / {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      aria-label="Next page of patients"
+                      className="px-4 py-2 rounded-xl border-2 border-slate-200 font-black text-sm disabled:opacity-40 flex items-center gap-1.5 hover:border-emerald-300 transition-colors"
+                    >
+                      Next <ChevronRight size={15} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <p className="px-5 pb-6 pt-4 text-xs font-medium text-slate-400 leading-relaxed">
                 Predictions are model outputs recorded at the time of each visit,
                 and the percentage is the model's raw score, not a probability

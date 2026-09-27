@@ -34,6 +34,23 @@ export default function Sidebar({
   const location = useLocation();
   const userRole = userData?.role;
 
+  /**
+   * Whether a nav item should read as current.
+   *
+   * A plain `pathname === item.path` was wrong for any nested route: opening a
+   * patient at /patients/abc left "Patient Records" unhighlighted, so the
+   * sidebar said the practitioner was nowhere while they were three levels into
+   * that section. A prefix match fixes it — but "/" is a prefix of everything,
+   * so the root entry is matched exactly and only when nothing more specific
+   * does.
+   */
+  const isCurrent = (path: string) => {
+    if (path === "/") return location.pathname === "/";
+    return (
+      location.pathname === path || location.pathname.startsWith(`${path}/`)
+    );
+  };
+
   const navItems =
     userRole === "admin"
       ? [
@@ -118,16 +135,21 @@ export default function Sidebar({
       </div>
 
       <div className="mb-6 px-4 text-xs font-black uppercase tracking-widest text-slate-500">
-        {userRole === "doctor" ? "Practitioner Portal" : "Patient Portal"}
+        {userRole === "admin"
+          ? "Operator Console"
+          : userRole === "doctor"
+            ? "Practitioner Portal"
+            : "Patient Portal"}
       </div>
 
       <nav className="space-y-2 flex-1">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path;
+          const isActive = isCurrent(item.path);
           return (
             <Link
               key={item.name}
               to={item.path}
+              aria-current={isActive ? "page" : undefined}
               onClick={() => window.innerWidth < 768 && setIsOpen(false)}
               className={`flex items-center gap-4 px-4 py-4 rounded-2xl font-bold transition-all ${isActive ? "bg-emerald-500/10 text-emerald-400" : "hover:bg-slate-900 hover:text-white"}`}
             >

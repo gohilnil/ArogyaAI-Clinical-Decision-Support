@@ -20,6 +20,7 @@ import {
   listPatientLogs,
 } from "../services/firestore";
 import { patientLink, patientMessage } from "../services/patientCode";
+import { fullDate } from "../lib/format";
 import type { Assessment, Patient, PatientLog } from "../types";
 
 /** One patient's profile and full assessment history (newest first). */
@@ -81,8 +82,7 @@ export default function PatientDetailPage() {
     load();
   }, [patientId]);
 
-  const fmt = (t?: { toDate: () => Date }) =>
-    t ? t.toDate().toLocaleString() : "—";
+  const fmt = fullDate;
 
   /**
    * Copy with visible confirmation rather than a silent no-op. Falls back to a

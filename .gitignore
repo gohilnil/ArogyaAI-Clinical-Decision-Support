@@ -12,6 +12,12 @@ eggs/
 .eggs/
 lib/
 lib64/
+# `lib/` above comes from the standard Python template and is UNANCHORED, so it
+# also matches the frontend's own src/lib/. That silently untracked
+# frontend/src/lib/format.ts — local dev worked (Vite reads from disk) while a
+# fresh clone on Vercel would have failed to resolve its imports. Re-included
+# explicitly, and after the pattern it overrides, since order matters here.
+!frontend/src/lib/
 parts/
 sdist/
 var/

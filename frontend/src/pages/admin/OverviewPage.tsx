@@ -15,7 +15,8 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { useAdminData } from "./useAdminData";
-import { DistributionBars, PanelCard, StatTile, SkeletonRows } from "./shared";
+import { DistributionBars, PanelCard, SkeletonRows } from "./shared";
+import { StatTile } from "../../components/ui/StatTile";
 import { ROLE_TONE, statusOf, titleCase } from "./constants";
 
 export default function AdminOverviewPage() {
