@@ -299,12 +299,20 @@ export default function DiagnosticTool({ userData }: { userData: UserData | null
       // history instead of unrelated documents.
       let patientId = selectedPatientId;
 
+      // Measurements ride along with the identity update so a returning patient
+      // is not re-measured at every visit. Parsed defensively: an empty or
+      // non-numeric field must not write NaN into the record.
+      const heightCm = parseInt(formData.height, 10);
+      const weightKg = parseInt(formData.weight, 10);
+
       if (patientId) {
         await updatePatient(patientId, {
           name: formData.name.trim(),
           age: formData.age,
           gender: formData.gender,
           dosha: formData.dosha,
+          heightCm: Number.isFinite(heightCm) ? heightCm : undefined,
+          weightKg: Number.isFinite(weightKg) ? weightKg : undefined,
         });
       } else {
         patientId = await createPatient(clinicId, uid, {
@@ -312,6 +320,8 @@ export default function DiagnosticTool({ userData }: { userData: UserData | null
           age: formData.age,
           gender: formData.gender,
           dosha: formData.dosha,
+          heightCm: Number.isFinite(heightCm) ? heightCm : undefined,
+          weightKg: Number.isFinite(weightKg) ? weightKg : undefined,
         });
         setSelectedPatientId(patientId);
       }
