@@ -171,11 +171,30 @@ service cloud.firestore {
         && request.resource.data.name is string
         && request.resource.data.createdBy == uid();
 
-      // The clinic that owns a patient can never change.
-      allow update: if isDoctor()
-        && resource.data.clinicId == myClinic()
+      // Who may correct a person's own details:
+      //   * a practitioner of the owning clinic, or
+      //   * the patient this record belongs to.
+      //
+      // The second case matters because a record is created by whoever registers
+      // the patient and is often named before the patient ever links an account.
+      // Without this, a patient who links to a record carrying someone else's
+      // name had no way to correct it — the name was permanent and wrong.
+      //
+      // Both paths are confined to the identity fields below. `clinicId` and
+      // `createdBy` can never change, so a patient cannot move their record to
+      // another clinic or claim another practitioner created it, and the
+      // `hasOnly` check stops any other field being smuggled in beside the edit.
+      allow update: if (
+          (isDoctor() && resource.data.clinicId == myClinic())
+          || ownsPatient(patientId)
+        )
         && request.resource.data.clinicId == resource.data.clinicId
-        && request.resource.data.name is string;
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.name is string
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+             'name', 'age', 'gender', 'dosha', 'email',
+             'heightCm', 'weightKg', 'updatedAt'
+           ]);
 
       // Records are retained, not destroyed, so history stays auditable.
       allow delete: if false;

@@ -333,9 +333,54 @@ test("a doctor cannot modify a patient in another clinic", async () => {
   );
 });
 
-test("a patient cannot modify their own record", async () => {
+// A record is created by whoever registers the patient, so it is often named
+// before the patient links an account. Letting the linked patient correct their
+// OWN identity is what stops a wrong name being permanent. The update stays
+// confined to identity fields, and clinicId/createdBy remain immutable.
+test("a linked patient CAN correct their own identity fields", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(PATIENT_1), "patients", "P001"), { name: "Ananya S. Sharma" }),
+  );
+  await assertSucceeds(
+    updateDoc(doc(as(PATIENT_1), "patients", "P001"), { heightCm: 164 }),
+  );
+});
+
+test("a patient CANNOT modify a record they are not linked to", async () => {
   await assertFails(
-    updateDoc(doc(as(PATIENT_1), "patients", "P001"), { name: "Renamed" }),
+    updateDoc(doc(as(PATIENT_1), "patients", "P002"), { name: "Not Mine" }),
+  );
+  await assertFails(
+    updateDoc(doc(as(PATIENT_2), "patients", "P001"), { name: "Not Mine" }),
+  );
+});
+
+test("a patient cannot move their record to another clinic", async () => {
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patients", "P001"), { clinicId: "CLIN02" }),
+  );
+});
+
+test("a patient cannot reassign who created their record", async () => {
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patients", "P001"), { createdBy: "patient-1" }),
+  );
+});
+
+test("a patient cannot smuggle a non-identity field into the update", async () => {
+  // Confining the allowed keys is what keeps "correct my name" from becoming a
+  // way to write clinical data straight onto a patient document.
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patients", "P001"), {
+      name: "Ananya S. Sharma",
+      diagnosis: "Self-diagnosed",
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patients", "P001"), {
+      name: "Ananya S. Sharma",
+      confidence: 99,
+    }),
   );
 });
 

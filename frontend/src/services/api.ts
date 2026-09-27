@@ -1,8 +1,9 @@
 // Single place where the frontend talks to the ArogyaAI backend.
-// The API base URL resolves in the same order as before the refactor:
-//   1. a user-configured Render URL (localStorage, set on the Profile page)
-//   2. VITE_API_URL from the build environment
-//   3. local development default
+// The base URL comes from the build environment (VITE_API_URL), with a local
+// development default. It is deliberately NOT user-editable: a per-browser
+// override let a clinician repoint every prediction request at an arbitrary
+// address, which is a support hazard rather than a feature — the deployed
+// address is a property of the deployment, not of the person using it.
 import { auth } from "../config/firebase";
 import type { AnalysisResult } from "../types";
 
@@ -21,8 +22,7 @@ export interface PredictPayload {
 }
 
 export function getApiBaseUrl(): string {
-  const renderUrl = localStorage.getItem("renderUrl") || "";
-  return renderUrl || import.meta.env.VITE_API_URL || "http://localhost:8000";
+  return import.meta.env.VITE_API_URL || "http://localhost:8000";
 }
 
 /** Thrown for a non-2xx API response, carrying the HTTP status. */
