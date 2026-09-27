@@ -4,9 +4,9 @@ rules_version = '2';
 // =================================
 // Design principles:
 //   * authentication != authorization. Being signed in grants nothing by itself.
-//   * the client never chooses its own privilege. Registration can only create
-//     a `patient`; a `doctor` document additionally requires a valid, unused
-//     invite that an administrator created out of band.
+//   * the client never chooses its own privilege. Registration can create a
+//     `patient` outright; a `doctor` self-registers into a `pending` state that
+//     only an admin can move out of.
 //   * role and clinicId are immutable after creation, so privilege cannot be
 //     escalated by updating an existing document.
 //   * a patient document is a PERSON; an assessment is a CLINICAL EVENT.
@@ -41,17 +41,32 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(uid())).data;
     }
 
+    // A practitioner is only a practitioner once APPROVED. Approval replaced
+    // the invite system: a doctor self-registers into a `pending` state and an
+    // admin promotes them. The default is 'approved' so accounts created before
+    // the field existed keep working — reading a missing field with .get()
+    // rather than a direct access also avoids the evaluation error that a
+    // missing key would raise and deny everything.
+    function doctorStatus() {
+      return profile().get('status', 'approved');
+    }
+
     function isDoctor() {
-      return isSignedIn() && profile().role == 'doctor';
+      return isSignedIn() && profile().role == 'doctor' && doctorStatus() == 'approved';
+    }
+
+    // True while a practitioner account exists but has not been approved yet.
+    function isPendingDoctor() {
+      return isSignedIn() && profile().role == 'doctor' && doctorStatus() == 'pending';
     }
 
     function isPatient() {
       return isSignedIn() && profile().role == 'patient';
     }
 
-    // Admin is a platform operator, provisioned out-of-band like the first
-    // invites were. An admin manages ACCOUNTS and ONBOARDING (who exists, which
-    // clinic they belong to, which invites are live) and deliberately gains
+    // Admin is a platform operator, provisioned out-of-band. An admin manages
+    // ACCOUNTS and ONBOARDING (who exists, which clinic they belong to, which
+    // practitioners are approved) and deliberately gains
     // NOTHING over clinical data: patients, assessments and diaries stay
     // governed by the clinic rules below. Separation of duties — the operator
     // who can create an account still cannot read a patient's history.
@@ -79,18 +94,7 @@ service cloud.firestore {
       return v is string && v.size() == 6;
     }
 
-    // An invite is valid only if it exists, has not been consumed, and was
-    // issued for exactly the clinic being claimed. Reading it here (rather than
-    // exists()) means a bogus code also fails safely: get() on a missing
-    // document denies the request. Binding the clinic means a leaked invite for
-    // one clinic cannot be redeemed against another.
-    function inviteGrants(code, clinicId) {
-      return code is string
-        && get(/databases/$(database)/documents/invites/$(code)).data.used == false
-        && get(/databases/$(database)/documents/invites/$(code)).data.clinicId == clinicId;
-    }
-
-    // A patient may only link to a patient record that exists and belongs to
+        // A patient may only link to a patient record that exists and belongs to
     // the same clinic the account was registered into. An empty code unlinks.
     function validPatientLink(patientId, clinicId) {
       return patientId == ''
@@ -103,10 +107,14 @@ service cloud.firestore {
     // ---------- users ----------
     // A user may read only their own profile; an admin may read any profile,
     // because account management is what admin exists for. Creation is
-    // constrained by role: `patient` is free, `doctor` requires an existing
-    // invite document, and `admin` cannot be self-assigned — an admin profile
-    // is provisioned out-of-band (console / Admin SDK), so a compromised
-    // client cannot mint an operator account.
+    // constrained by role: `patient` is free, `doctor` SELF-REGISTERS into a
+    // `pending` state that an admin later approves, and `admin` cannot be
+    // self-assigned — an admin profile is provisioned out-of-band (console /
+    // Admin SDK), so a compromised client cannot mint an operator account.
+    //
+    // The approval workflow replaced the invite system. A pending doctor is
+    // still gated: isDoctor() is false until an admin sets status='approved',
+    // so a pending account can read its own profile and nothing else.
     match /users/{userId} {
       allow read: if isSignedIn() && (userId == uid() || isAdmin());
 
@@ -122,28 +130,30 @@ service cloud.firestore {
           request.resource.data.role == 'patient'
           || (
             request.resource.data.role == 'doctor'
-            && inviteGrants(
-                 request.resource.data.inviteCode,
-                 request.resource.data.clinicId
-               )
+            && request.resource.data.status == 'pending'
           )
         );
 
       // role, clinicId and email are immutable to their OWNER: an update may
       // not change them, and a patient account may additionally (un)link
-      // itself to a patient record within its own clinic.
+      // itself to a patient record within its own clinic. `status` is likewise
+      // owner-immutable — otherwise a pending doctor could self-approve and
+      // the approval workflow would be theatre.
       //
-      // An admin may correct role, clinicId or email on ANY account, because
-      // account management is exactly what the role exists for — a mistyped
-      // clinic at registration otherwise strands the account permanently
-      // (there is a live example). The admin path still requires the account to
-      // remain internally consistent: a patient's patientId must belong to the
-      // account's clinic, and the role must be one of the three known roles.
+      // An admin may correct role, clinicId, email or status on ANY account,
+      // because account management is exactly what the role exists for — a
+      // mistyped clinic at registration otherwise strands the account
+      // permanently (there is a live example). The admin path still requires
+      // the account to remain internally consistent: a patient's patientId
+      // must belong to the account's clinic, and the role and status must be
+      // within their known sets.
       allow update: if (
           (isSignedIn() && userId == uid()
             && request.resource.data.role == resource.data.role
             && request.resource.data.clinicId == resource.data.clinicId
             && request.resource.data.email == resource.data.email
+            && request.resource.data.get('status', 'approved')
+               == resource.data.get('status', 'approved')
             && (
               resource.data.role == 'doctor'
               || validPatientLink(
@@ -164,54 +174,16 @@ service cloud.firestore {
                  )
             )
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-                 'role', 'clinicId', 'email', 'patientId', 'inviteCode'
+                 'role', 'clinicId', 'email', 'patientId', 'status'
                ])
+            && request.resource.data.get('status', 'approved')
+               in ['approved', 'pending', 'rejected']
           )
         );
 
       // The Auth account itself is removed through the Auth admin API; the
       // admin may clear the Firestore profile that belongs to it.
       allow delete: if isAdmin();
-    }
-
-    // ---------- invites ----------
-    // A practitioner may issue an invite for their OWN clinic, which is how a
-    // clinic grows without an administrator in the loop. The document id is the
-    // code, so the rule requires the caller to have chosen one with real
-    // entropy (26+ chars here); a doctor cannot mint a short guessable code
-    // because the id length is checked. The invite is bound to the caller's own
-    // clinic and starts unused — a caller cannot pre-consume their own invite.
-    //
-    // `list` stays denied. A signed-in user may look up ONE invite by its exact
-    // code — how registration checks a code before claiming it — and may mark
-    // an unused invite as used exactly once. Treating the code as a capability
-    // means it must be presented, not discovered, so no client can enumerate
-    // every invite and its clinicId.
-    match /invites/{code} {
-      allow get: if isSignedIn();
-      // Listing stays denied for ordinary accounts — a code is a capability
-      // that must be presented, not discovered. An admin lists invites because
-      // auditing which invites are live is part of account management.
-      allow list: if isAdmin();
-
-      allow create: if isDoctor()
-        && code.size() >= 26
-        && request.resource.data.used == false
-        && request.resource.data.clinicId == myClinic()
-        // diff() cannot be used on create (there is no existing document, so
-        // resource.data is absent and the call throws, denying every creation).
-        // keys().hasOnly() is the create-time equivalent: exactly these fields.
-        && request.resource.data.keys().hasOnly(['used', 'clinicId']);
-
-      allow update: if isSignedIn()
-        && resource.data.used == false
-        && request.resource.data.used == true
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']);
-
-      // An admin may revoke (delete) an unused invite — e.g. one shared in
-      // error. A used invite is retained: deletion would erase the record of
-      // which code let which account in.
-      allow delete: if isAdmin() && resource.data.used == false;
     }
 
     // ---------- patients ----------

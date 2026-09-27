@@ -17,7 +17,6 @@ import {
   query,
   where,
   updateDoc,
-  deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
@@ -26,13 +25,6 @@ import type { AnalysisResult, Assessment, Patient, PatientLog, UserData } from "
 /** An account profile with its document id, as the admin panel lists it. */
 export interface UserDataWithId extends UserData {
   id: string;
-}
-
-/** One invite as the admin panel lists it. */
-export interface InviteRecord {
-  code: string;
-  used: boolean;
-  clinicId: string;
 }
 
 /** Below this ML confidence the system declines to name a condition. */
@@ -418,12 +410,10 @@ export async function listAllUsers(): Promise<UserDataWithId[]> {
     .sort((a, b) => (a.email || "").localeCompare(b.email || ""));
 }
 
-/** Every invite, used and unused. Admin-only by rule. */
-export async function listAllInvites(): Promise<InviteRecord[]> {
-  const snap = await getDocs(collection(db, "invites"));
-  return snap.docs
-    .map((d) => ({ code: d.id, ...(d.data() as Omit<InviteRecord, "code">) }))
-    .sort((a, b) => Number(a.used) - Number(b.used));
+/** Accounts awaiting an approval decision. Admin-only by rule. */
+export async function listPendingDoctors(): Promise<UserDataWithId[]> {
+  const all = await listAllUsers();
+  return all.filter((u) => u.role === "doctor" && (u as UserDataWithId).status === "pending");
 }
 
 /**
@@ -433,51 +423,22 @@ export async function listAllInvites(): Promise<InviteRecord[]> {
  */
 export async function adminUpdateUser(
   userId: string,
-  changes: { role?: string; clinicId?: string; email?: string },
+  changes: {
+    role?: string;
+    clinicId?: string;
+    email?: string;
+    status?: "approved" | "pending" | "rejected";
+  },
 ): Promise<void> {
   await updateDoc(doc(db, "users", userId), changes);
 }
 
 /**
- * Revoke an unused invite. Used invites are retained by rule: deleting one
- * would erase the record of which code let which account in.
+ * Approve or reject a pending practitioner. Admin-only by rule; the rules
+ * confine status to the known states, so an invalid value is refused there.
  */
-export async function adminRevokeInvite(code: string): Promise<void> {
-  await deleteDoc(doc(db, "invites", code));
-}
-
-// ---------------------------------------------------------------------------
-// practitioner-issued codes
-// ---------------------------------------------------------------------------
-
-/**
- * Generate an invite code a colleague can register a practitioner account with.
- *
- * The code IS the Firestore document id, so it must carry real entropy: the
- * rules reject anything shorter than 26 characters precisely so a doctor cannot
- * self-issue a short guessable code. 24 base32 characters (no I/O/0/1, so a
- * code survives being read aloud or written down) over ~120 bits is far beyond
- * any brute-force reach. Returned unhyphenated in groups for readability.
- *
- * The rules bind the invite to the caller's own clinic and reject a pre-used
- * one; nothing here needs to be trusted.
- */
-export function generateInviteCode(): string {
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = new Uint8Array(24);
-  crypto.getRandomValues(bytes);
-  const raw = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
-  return `${raw.slice(0, 8)}-${raw.slice(8, 16)}-${raw.slice(16, 24)}`;
-}
-
-/** Persist a doctor-issued invite, bound to the caller's own clinic. */
-export async function createInvite(
-  clinicId: string,
-  code: string,
-): Promise<string> {
-  const clinic = requireClinic(clinicId);
-  await setDoc(doc(db, "invites", code), { used: false, clinicId: clinic });
-  return code;
+export async function setDoctorStatus(userId: string, status: "approved" | "pending" | "rejected"): Promise<void> {
+  await updateDoc(doc(db, "users", userId), { status });
 }
 
 // ---------------------------------------------------------------------------
@@ -493,7 +454,7 @@ export async function createInvite(
  * IDs are case-sensitive. It must therefore be passed through unchanged.
  *
  * This previously called `.toUpperCase()` on it, which is right for a clinic ID
- * or an invite code (both are stored uppercase by construction) but wrong here:
+ * or a clinic ID (stored uppercase by construction) but wrong here:
  * a patient ID is an auto-generated mixed-case string, so uppercasing turned a
  * valid code into an ID that does not exist. The rules' `exists()` check then
  * failed and every link attempt was refused — a patient could not link their

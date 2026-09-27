@@ -3,6 +3,7 @@ import { useAuth } from "./hooks/useAuth";
 import LoginPage from "./pages/LoginPage";
 import AppShell from "./components/layout/AppShell";
 import UnprovisionedPage from "./pages/UnprovisionedPage";
+import PendingApprovalPage from "./pages/PendingApprovalPage";
 
 export default function App() {
   const { user, userData, authLoading } = useAuth();
@@ -31,6 +32,16 @@ export default function App() {
 
   if (!hasUsableProfile) {
     return <UnprovisionedPage user={user} />;
+  }
+
+  // A practitioner who is not yet approved is denied every clinic read by the
+  // rules, so routing them into the portal would render a dashboard whose every
+  // query fails — indistinguishable from a broken app. Show the real state.
+  if (
+    userData?.role === "doctor" &&
+    (userData.status === "pending" || userData.status === "rejected")
+  ) {
+    return <PendingApprovalPage user={user} userData={userData} />;
   }
 
   return (

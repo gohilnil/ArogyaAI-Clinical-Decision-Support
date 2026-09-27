@@ -54,7 +54,8 @@ export default function UnprovisionedPage({ user }: { user: FirebaseUser }) {
               register again with it.
             </li>
             <li>
-              Practitioners: ask the clinic administrator for an invite code.
+              Practitioners: register with your clinic's ID — an administrator
+              approves practitioner accounts before they can see clinic data.
             </li>
           </ul>
         </div>

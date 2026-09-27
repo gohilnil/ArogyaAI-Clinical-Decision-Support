@@ -51,6 +51,10 @@ export interface UserData {
   role: string;
   clinicId: string;
   email: string;
+  /** Practitioner onboarding state. `pending` until an admin approves the
+   *  account; `rejected` denies access. Absent on accounts created before the
+   *  approval workflow existed, which the rules treat as approved. */
+  status?: "pending" | "approved" | "rejected";
   /** Present only for a patient account that has redeemed a clinician-issued
    *  patient code. Links the account to exactly one patients/{patientId} doc. */
   patientId?: string;

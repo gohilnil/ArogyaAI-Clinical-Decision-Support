@@ -12,14 +12,14 @@ import {
   sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
-import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 /**
  * Registration failure messages have to outlive this component.
  *
- * Registration creates the Auth account BEFORE it can validate the invite or
- * write the profile document, because the rules only allow a signed-in caller
- * to read an invite. So `onAuthStateChanged` fires mid-registration, App stops
+ * Registration creates the Auth account BEFORE it writes the profile document
+ * (validation is cheapest before the account exists, and the no-orphan rollback
+ * needs the handle). So `onAuthStateChanged` fires mid-registration, App stops
  * rendering LoginPage, and the failure is then thrown by a component that is no
  * longer mounted. Setting state there does nothing, and after the rollback
  * signs the account out, a *fresh* LoginPage mounts showing nothing at all —
@@ -61,44 +61,31 @@ export default function LoginPage() {
     "patient",
   );
   const [clinicIdInput, setClinicIdInput] = useState("");
-  const [inviteCodeInput, setInviteCodeInput] = useState("");
   /** True while a sign-in/registration request is in flight, so the form
    *  cannot be submitted twice and the user sees that work is happening. */
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   type RegistrationPlan =
     | { role: "patient"; clinicId: string }
-    | { role: "doctor"; clinicId: string; inviteCode: string };
+    | { role: "doctor"; clinicId: string };
 
   /**
    * Pre-fill registration from a shareable link.
    *
-   * A practitioner can copy two links, and neither weakens a security control:
+   *   ?clinic=RCCSO8   opens registration with the clinic filled in
    *
-   *   ?clinic=RCCSO8        opens patient registration with the clinic filled in
-   *   ?invite=AROGYA-XXXX   opens practitioner registration with the code filled in
-   *
-   * The clinic link only saves typing a code the practitioner already shares
-   * verbally — the patient still cannot choose a different clinic into an
-   * existing account, and the rules still bind the account to what was claimed.
-   * The invite link still requires a real, unused, clinic-bound invite; it just
-   * spares a long code being mistyped, which was the actual failure mode before
-   * (a wrong character produced an account with no clinic and an empty
-   * dashboard, with no obvious cause).
+   * This only saves typing a code the practitioner already shares verbally —
+   * the rules still bind the account to what was claimed.
    */
   useEffect(() => {
     if (!window.location.search) return;
     const params = new URLSearchParams(window.location.search);
-    const invite = (params.get("invite") || "").trim().toUpperCase();
     const clinic = (params.get("clinic") || "").trim().toUpperCase();
 
-    if (invite) {
+    if (clinic) {
       setIsLogin(false);
-      setSelectedRole("doctor");
-      setInviteCodeInput(invite);
-    } else if (clinic) {
-      setIsLogin(false);
-      setSelectedRole("patient");
+      if (params.get("role") === "doctor") setSelectedRole("doctor");
+      else setSelectedRole("patient");
       setClinicIdInput(clinic);
     }
   }, []);
@@ -106,50 +93,27 @@ export default function LoginPage() {
   /**
    * Validate the registration inputs and resolve the profile to be written.
    *
-   * Runs BEFORE the auth account is created, so an invalid invite or clinic
-   * cannot leave an orphaned account behind.
+   * Runs BEFORE the auth account is created, so an invalid clinic cannot leave
+   * an orphaned account behind.
    *
-   * The role is still not taken on trust: Firestore rules independently verify
-   * that a `doctor` claim is backed by an unused invite issued for the same
-   * clinic, so a tampered client cannot grant itself practitioner access. The
-   * checks here only produce a clearer message than a permission error would.
+   * Practitioner access is still not granted here: a doctor self-registers into
+   * a `pending` state, and only an admin can approve it. The rules enforce that
+   * independently — a tampered client cannot register as approved.
    */
   const planRegistration = async (): Promise<RegistrationPlan> => {
-    if (selectedRole === "doctor") {
-      const code = inviteCodeInput.trim().toUpperCase();
-      if (!code) {
-        throw new Error(
-          "A practitioner invite code is required to register a clinic account.",
-        );
-      }
-
-      const inviteSnap = await getDoc(doc(db, "invites", code));
-      if (!inviteSnap.exists()) {
-        throw new Error(
-          "That practitioner invite code is not valid. Ask the clinic administrator for a current code.",
-        );
-      }
-      const invite = inviteSnap.data() as { used?: boolean; clinicId?: string };
-      if (invite.used) {
-        throw new Error("That invite code has already been used.");
-      }
-      if (!invite.clinicId) {
-        throw new Error("That invite code is not linked to a clinic.");
-      }
-      // The clinic comes from the invite, never from the registrant.
-      return { role: "doctor", clinicId: invite.clinicId, inviteCode: code };
-    }
-
     const clinicId = clinicIdInput.trim().toUpperCase();
     if (clinicId.length !== 6) {
       throw new Error(
-        "Patients must enter a valid 6-character Clinic ID provided by their doctor.",
+        "A valid 6-character Clinic ID is required to register.",
       );
+    }
+    if (selectedRole === "doctor") {
+      return { role: "doctor", clinicId };
     }
     return { role: "patient", clinicId };
   };
 
-  /** Write users/{uid}, consuming the invite for a clinic account. */
+  /** Write users/{uid}. A practitioner lands pending until an admin approves. */
   const writeProfile = async (
     uid: string,
     userEmail: string | null,
@@ -160,9 +124,8 @@ export default function LoginPage() {
         email: userEmail,
         role: "doctor",
         clinicId: plan.clinicId,
-        inviteCode: plan.inviteCode,
+        status: "pending",
       });
-      await updateDoc(doc(db, "invites", plan.inviteCode), { used: true });
       return;
     }
 
@@ -184,13 +147,9 @@ export default function LoginPage() {
         return;
       }
 
-      // The account is created BEFORE the invite is looked up, because the
-      // rules only allow a signed-in caller to fetch an invite by code. The
-      // previous order read the invite while signed out, which the rules
-      // denied — so practitioner registration could not complete at all.
-      //
-      // The no-orphan invariant is preserved by removing the account if the
-      // profile cannot be written, rather than by validating first.
+      // The no-orphan invariant: the account is removed if the profile cannot
+      // be written, rather than validating everything first against a moving
+      // target. The profile write is what a rules failure would break.
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         email,
@@ -228,8 +187,7 @@ export default function LoginPage() {
     setIsSubmitting(true);
     const provider = new GoogleAuthProvider();
     try {
-      // Sign in first, as in handleAuth: the invite lookup below is only
-      // permitted for a signed-in caller.
+      // Sign in first: the existing-profile check below needs the handle.
       const userCredential = await signInWithPopup(auth, provider);
       const userDocRef = doc(db, "users", userCredential.user.uid);
       const userDocSnap = await getDoc(userDocRef);
@@ -425,21 +383,14 @@ export default function LoginPage() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: "auto" }}
-                  className="relative"
+                  className="bg-blue-50 border border-blue-200 p-4 rounded-2xl flex gap-3"
                 >
-                  <Shield className="absolute left-5 top-4 text-slate-400 w-6 h-6" />
-                  <input
-                    type="text"
-                    required
-                    value={inviteCodeInput}
-                    onChange={(e) => setInviteCodeInput(e.target.value)}
-                    className="w-full p-4 pl-14 rounded-2xl border-2 border-slate-300 bg-slate-50 focus:ring-4 focus:ring-emerald-200 outline-none font-black text-slate-900 tracking-widest uppercase shadow-inner"
-                    placeholder="Practitioner Invite Code"
-                  />
-                  <p className="text-xs font-bold text-slate-400 mt-2 ml-2">
-                    Clinic accounts require an invite code issued by the
-                    administrator. This prevents anyone from self-registering as
-                    a practitioner.
+                  <Shield className="text-blue-500 w-6 h-6 flex-shrink-0" />
+                  <p className="text-xs font-medium text-blue-800">
+                    Practitioner accounts are reviewed by a platform
+                    administrator before access is granted. You will be able to
+                    sign in immediately, but patient records stay hidden until
+                    your account is approved.
                   </p>
                 </motion.div>
               )}

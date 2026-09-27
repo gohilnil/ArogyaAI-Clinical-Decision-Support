@@ -47,7 +47,7 @@ const PATIENT_2 = { uid: "patient-2", role: "patient", clinicId: "CLIN01", email
 // Records created before that field existed look like this, and they are the
 // ones most likely to carry a wrong name — so the update path must handle them.
 const PATIENT_3 = { uid: "patient-3", role: "patient", clinicId: "CLIN01", email: "p3@test.test", patientId: "P003" };
-// The platform operator. Provisioned out-of-band, like the first invites were.
+// The platform operator. Provisioned out-of-band.
 const ADMIN = { uid: "admin-1", role: "admin", clinicId: "CLIN01", email: "admin@arogyaai.test" };
 
 /** A context whose caller has a provisioned users/{uid} profile. */
@@ -100,8 +100,6 @@ async function seed() {
     await setDoc(doc(db, "patient_logs", "log1"), {
       userId: "patient-1", clinicId: "CLIN01", symptoms: "headache",
     });
-    await setDoc(doc(db, "invites", "VALID1"), { used: false, clinicId: "CLIN03" });
-    await setDoc(doc(db, "invites", "USED01"), { used: true, clinicId: "CLIN01" });
   });
 }
 
@@ -153,48 +151,70 @@ test("registration may self-create a patient profile", async () => {
   );
 });
 
-test("registration CANNOT self-create a doctor without an invite", async () => {
-  const db = testEnv.authenticatedContext("attacker").firestore();
-  await assertFails(
-    setDoc(doc(db, "users", "attacker"), {
-      email: "attacker@test.test", role: "doctor", clinicId: "CLIN01",
-    }),
-  );
-});
-
-test("registration CANNOT self-create a doctor with a used invite", async () => {
-  const db = testEnv.authenticatedContext("attacker2").firestore();
-  await assertFails(
-    setDoc(doc(db, "users", "attacker2"), {
-      email: "a2@test.test", role: "doctor", clinicId: "CLIN01", inviteCode: "USED01",
-    }),
-  );
-});
-
-test("registration CAN create a doctor with a valid unused invite", async () => {
+// The approval workflow replaced invites: a doctor self-registers into a
+// `pending` state and only an admin can move them out of it. These tests pin
+// both halves — that self-registration lands pending, and that the pending
+// state actually gates access.
+test("registration self-creates a doctor in the pending state", async () => {
   const db = testEnv.authenticatedContext("new-doctor").firestore();
   await assertSucceeds(
     setDoc(doc(db, "users", "new-doctor"), {
-      email: "nd@clinic.test", role: "doctor", clinicId: "CLIN03", inviteCode: "VALID1",
+      email: "nd@clinic.test", role: "doctor", clinicId: "CLIN01", status: "pending",
     }),
   );
 });
 
-test("a valid invite CANNOT be redeemed against a different clinic", async () => {
-  const db = testEnv.authenticatedContext("clinic-thief").firestore();
+test("registration CANNOT self-create an approved doctor", async () => {
+  // Self-approving at registration would make the admin gate theatre.
+  const db = testEnv.authenticatedContext("self-approver").firestore();
   await assertFails(
-    setDoc(doc(db, "users", "clinic-thief"), {
-      email: "thief@test.test", role: "doctor", clinicId: "CLIN02", inviteCode: "VALID1",
+    setDoc(doc(db, "users", "self-approver"), {
+      email: "sa@test.test", role: "doctor", clinicId: "CLIN01", status: "approved",
     }),
   );
 });
 
-test("a non-existent invite code is refused", async () => {
-  const db = testEnv.authenticatedContext("no-invite").firestore();
+test("a doctor cannot register without an explicit pending status", async () => {
+  const db = testEnv.authenticatedContext("no-status").firestore();
   await assertFails(
-    setDoc(doc(db, "users", "no-invite"), {
-      email: "ni@test.test", role: "doctor", clinicId: "CLIN01", inviteCode: "DOESNOTEXIST",
+    setDoc(doc(db, "users", "no-status"), {
+      email: "ns@test.test", role: "doctor", clinicId: "CLIN01",
     }),
+  );
+});
+
+test("a pending doctor can read only their own profile", async () => {
+  const db = testEnv.authenticatedContext("pending-doc").firestore();
+  await setDoc(doc(db, "users", "pending-doc"), {
+    email: "pd@clinic.test", role: "doctor", clinicId: "CLIN01", status: "pending",
+  });
+  await assertSucceeds(getDoc(doc(db, "users", "pending-doc")));
+  await assertFails(getDoc(doc(db, "patients", "P001")));
+  await assertFails(getDocs(collection(db, "patients")));
+});
+
+test("only an admin can approve a pending doctor", async () => {
+  const db = testEnv.authenticatedContext("awaiting").firestore();
+  await setDoc(doc(db, "users", "awaiting"), {
+    email: "aw@clinic.test", role: "doctor", clinicId: "CLIN01", status: "pending",
+  });
+  // The doctor themself cannot flip their own status.
+  await assertFails(updateDoc(doc(db, "users", "awaiting"), { status: "approved" }));
+  // An admin can.
+  await assertSucceeds(
+    updateDoc(doc(as(ADMIN), "users", "awaiting"), { status: "approved" }),
+  );
+});
+
+test("an admin can reject a pending doctor", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), { role: "doctor", status: "rejected" }),
+  );
+});
+
+test("an admin cannot set an unknown status", async () => {
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), { status: "superuser" }),
   );
 });
 
@@ -694,89 +714,6 @@ test("a doctor cannot attach a patient's entry", async () => {
   );
 });
 
-// ---------------------------------------------------------------------------
-// invites and default-deny
-// ---------------------------------------------------------------------------
-// A practitioner may issue an invite for their OWN clinic — that is how a
-// clinic grows without an administrator in the loop. The document id is the
-// code, so the rule demands real entropy (>=26 chars) and binds the invite to
-// the caller's clinic, unused. Everything else stays as before: no listing,
-// no delete, consume-once.
-const LONG_CODE = "AROGYA-ABCDE26CHARS-MINIMUM-OK"; // 30 chars
-const SHORT_CODE = "AROGYA-SHORT"; // 12 chars — below the entropy floor
-
-test("a doctor CAN issue an invite for their own clinic", async () => {
-  await assertSucceeds(
-    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE), {
-      used: false, clinicId: "CLIN01",
-    }),
-  );
-});
-
-test("a doctor CANNOT issue an invite for another clinic", async () => {
-  await assertFails(
-    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE + "-X"), {
-      used: false, clinicId: "CLIN02",
-    }),
-  );
-});
-
-test("a patient CANNOT issue an invite at all", async () => {
-  await assertFails(
-    setDoc(doc(as(PATIENT_1), "invites", LONG_CODE + "-P"), {
-      used: false, clinicId: "CLIN01",
-    }),
-  );
-});
-
-test("a doctor CANNOT mint a short, guessable invite code", async () => {
-  // The code IS the capability, so a caller-chosen id must carry entropy. The
-  // length floor is what stops "INVITE1" being self-issued and guessed.
-  await assertFails(
-    setDoc(doc(as(DOCTOR_A), "invites", SHORT_CODE), {
-      used: false, clinicId: "CLIN01",
-    }),
-  );
-});
-
-test("an issued invite cannot be pre-consumed by its issuer", async () => {
-  await assertFails(
-    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE + "-C"), {
-      used: true, clinicId: "CLIN01",
-    }),
-  );
-});
-
-test("an issued invite cannot carry extra fields", async () => {
-  await assertFails(
-    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE + "-D"), {
-      used: false, clinicId: "CLIN01", role: "admin",
-    }),
-  );
-});
-
-test("an invite still cannot be deleted from a client", async () => {
-  await assertFails(deleteDoc(doc(as(DOCTOR_A), "invites", "VALID1")));
-});
-
-test("an unused invite can be consumed once", async () => {
-  await assertSucceeds(
-    updateDoc(doc(as(DOCTOR_A), "invites", "VALID1"), { used: true }),
-  );
-  await assertFails(
-    updateDoc(doc(as(DOCTOR_A), "invites", "USED01"), { used: true }),
-  );
-});
-
-// Regression: a single `read` rule also authorised collection queries, so any
-// signed-in account could list every invite and its clinicId. The code is a
-// capability — it must be presented, not discovered — so get stays allowed and
-// list is denied.
-test("an invite can be fetched by code but NOT enumerated", async () => {
-  await assertSucceeds(getDoc(doc(as(DOCTOR_A), "invites", "VALID1")));
-  await assertFails(getDocs(collection(as(DOCTOR_A), "invites")));
-});
-
 test("a collection with no rule is denied by default", async () => {
   await assertFails(getDoc(doc(as(DOCTOR_A), "audit_logs", "anything")));
   await assertFails(
@@ -845,15 +782,6 @@ test("an admin cannot self-mint an admin profile at registration", async () => {
 test("an admin can delete a user profile", async () => {
   await assertSucceeds(deleteDoc(doc(as(ADMIN), "users", "patient-2")));
   await assertFails(deleteDoc(doc(as(DOCTOR_A), "users", "patient-2")));
-});
-
-test("an admin can list invites", async () => {
-  await assertSucceeds(getDocs(collection(as(ADMIN), "invites")));
-});
-
-test("an admin can revoke an UNUSED invite but not a used one", async () => {
-  await assertSucceeds(deleteDoc(doc(as(ADMIN), "invites", "VALID1")));
-  await assertFails(deleteDoc(doc(as(ADMIN), "invites", "USED01")));
 });
 
 test("admin gains NOTHING over clinical data", async () => {

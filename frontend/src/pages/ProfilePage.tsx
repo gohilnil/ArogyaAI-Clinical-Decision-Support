@@ -9,15 +9,11 @@ import {
   UserRound,
   Copy,
   Check,
-  Ticket,
   Users,
-  ExternalLink,
 } from "lucide-react";
 import type { User as FirebaseUser } from "firebase/auth";
 import {
   attachMyOrphanedLogs,
-  createInvite,
-  generateInviteCode,
   getPatient,
   linkPatientAccount,
   updatePatient,
@@ -75,10 +71,7 @@ export default function ProfileSettings({
     null,
   );
 
-  // Doctor-side code issuing: what was just generated, and what was last copied.
-  const [invite, setInvite] = useState<{ code: string; link: string } | null>(null);
-  const [issuing, setIssuing] = useState(false);
-  const [issueError, setIssueError] = useState<string | null>(null);
+  // Tracks which value was last copied, so the button shows a tick briefly.
   const [copied, setCopied] = useState<string | null>(null);
 
   const linkedId = userData?.patientId || "";
@@ -236,36 +229,6 @@ export default function ProfileSettings({
     setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
   };
 
-  /**
-   * Mint a practitioner invite bound to this clinic.
-   *
-   * The rules require a 26+-character code, so a doctor cannot self-issue a
-   * short guessable one; the generated code is 24 base32 chars (no I/O/0/1, so
-   * it survives being read aloud). If the write fails — an expired session, a
-   * rules mismatch — the code is regenerated rather than shown, because a code
-   * that was never persisted would fail at registration with no visible cause.
-   */
-  const handleIssueInvite = async () => {
-    if (issuing) return;
-    setIssuing(true);
-    setIssueError(null);
-    try {
-      const code = generateInviteCode();
-      await createInvite(userData!.clinicId, code);
-      setInvite({
-        code,
-        link: `${window.location.origin}${window.location.pathname}?invite=${code}`,
-      });
-    } catch (e) {
-      console.error("Could not issue an invite:", e);
-      setIssueError(
-        "Could not issue an invite. Check your connection and try again.",
-      );
-    } finally {
-      setIssuing(false);
-    }
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -319,90 +282,6 @@ export default function ProfileSettings({
                   {copied === "clinic" ? <Check size={20} /> : <Copy size={20} />}
                 </button>
               </div>
-            </div>
-
-            <div className="bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem]">
-              <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
-                <h4 className="font-black text-slate-900 flex items-center gap-2">
-                  <Ticket className="text-emerald-500" size={20} /> Practitioner
-                  Invites
-                </h4>
-                <button
-                  onClick={handleIssueInvite}
-                  disabled={issuing}
-                  className="bg-slate-950 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-slate-800 disabled:opacity-60"
-                >
-                  <Ticket size={16} />
-                  {issuing ? "Generating…" : "Generate invite"}
-                </button>
-              </div>
-              <p className="text-slate-500 font-medium text-sm mb-5">
-                Each invite lets one colleague register a practitioner account in
-                your clinic. An invite works once; issue a fresh one for each
-                person.
-              </p>
-
-              {issueError && (
-                <div className="p-4 bg-red-100 text-red-700 rounded-xl font-bold text-sm flex items-start gap-2">
-                  <AlertCircle size={18} className="flex-shrink-0" />
-                  {issueError}
-                </div>
-              )}
-
-              {invite && (
-                <div className="bg-emerald-50 border-2 border-emerald-200 p-5 rounded-2xl space-y-4">
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest text-emerald-700 mb-1">
-                      Invite code — works once
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <code className="font-mono font-black text-slate-900 bg-white px-4 py-2 rounded-xl border border-emerald-200 text-sm tracking-wide">
-                        {invite.code}
-                      </code>
-                      <button
-                        onClick={() => copyText("invite", invite.code)}
-                        aria-label="Copy invite code"
-                        className="p-2.5 rounded-xl border border-emerald-200 text-emerald-700 hover:bg-white transition-colors"
-                      >
-                        {copied === "invite" ? <Check size={18} /> : <Copy size={18} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-widest text-emerald-700 mb-1">
-                      Registration link — pre-fills the code
-                    </p>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <code className="font-mono text-slate-700 bg-white px-4 py-2 rounded-xl border border-emerald-200 text-xs break-all max-w-full">
-                        {invite.link}
-                      </code>
-                      <div className="flex gap-1">
-                        <button
-                          onClick={() => copyText("inviteLink", invite.link)}
-                          aria-label="Copy registration link"
-                          className="p-2.5 rounded-xl border border-emerald-200 text-emerald-700 hover:bg-white transition-colors"
-                        >
-                          {copied === "inviteLink" ? <Check size={18} /> : <Copy size={18} />}
-                        </button>
-                        <a
-                          href={invite.link}
-                          target="_blank"
-                          rel="noreferrer"
-                          aria-label="Open the registration link"
-                          className="p-2.5 rounded-xl border border-emerald-200 text-emerald-700 hover:bg-white transition-colors"
-                        >
-                          <ExternalLink size={18} />
-                        </a>
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs font-semibold text-emerald-800/80">
-                    Share either form. The code must be presented at registration
-                    and is consumed by the first person who uses it — treat it
-                    like a key.
-                  </p>
-                </div>
-              )}
             </div>
 
             <div className="bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem]">

@@ -55,10 +55,10 @@ const SECTIONS: Section[] = [
   },
   {
     icon: Building,
-    title: "Clinics, invites and patient codes",
+    title: "Clinics, approval and patient codes",
     tone: "bg-blue-100 text-blue-600",
     body: [
-      "Every account belongs to exactly one clinic. Practitioner accounts are created only through an administrator-issued invite code, and a patient joins a clinic by entering its 6-character Clinic ID at registration.",
+      "Every account belongs to exactly one clinic. A patient joins a clinic by entering its 6-character Clinic ID at registration. A practitioner self-registers with the same Clinic ID and is then reviewed by a platform administrator before any clinic data becomes visible.",
       "A patient reaches their own record by redeeming the clinician-issued patient code on their Profile page. Diary entries written before linking are adopted onto the record automatically when the link is made.",
     ],
   },
