@@ -74,24 +74,24 @@ FIREBASE_CERT_URL = os.getenv(
 # deliberately NOT used, because combined with credentialed requests it would
 # let any site on the internet call this API with the user's session. Additional
 # deployment origins can be supplied via AROGYA_CORS_ORIGINS (comma-separated).
-# Both ArogyaAI frontends are listed. They are two live deployments of this
-# product, and an earlier configuration held only the second one — but the
-# current build is served from the long `-nine` subdomain, so every preflight
-# from the real origin was rejected (400, no allow-origin header) and the
-# browser blocked every prediction request. A CORS origin has to match the
-# served origin exactly; a plausible-looking domain is not a match.
+# The deployed frontend origin is listed explicitly. It previously held only
+# `https://arogyaai.vercel.app`, which is NOT the address this build serves from
+# — so every preflight from the real origin was rejected (400, no allow-origin
+# header) and the browser blocked every prediction request, with nothing in the
+# server log. A CORS origin has to match the served origin exactly.
 #
-# `https://arogyaai.vercel.app` resolves to an older deployment and is kept so
-# switching one out does not silently break it. Remove it only once that
-# deployment is retired.
+# `https://arogyaai.vercel.app` is deliberately NOT allowlisted. It serves an
+# older generation of this app whose bundle calls a *different* backend
+# (`ai-health-n4i4.onrender.com`), so it never calls this API and allowing it
+# would only widen the surface. An origin belongs here when it actually
+# consumes this service.
 CORS_ORIGINS = [
     o.strip()
     for o in os.getenv(
         "AROGYA_CORS_ORIGINS",
         "http://localhost:5173,http://localhost:3000,"
         "http://127.0.0.1:5173,"
-        "https://arogya-ai-clinical-decision-support-nine.vercel.app,"
-        "https://arogyaai.vercel.app",
+        "https://arogya-ai-clinical-decision-support-nine.vercel.app",
     ).split(",")
     if o.strip()
 ]

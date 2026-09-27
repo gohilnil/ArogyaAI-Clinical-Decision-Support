@@ -527,27 +527,17 @@ class TestProductionCorsOrigin(unittest.TestCase):
             finally:
                 importlib.reload(cfg)
 
-    def test_preflight_from_the_legacy_origin_is_also_allowed(self):
-        """An older ArogyaAI deployment shares the API and must keep working.
+    def test_legacy_domain_is_not_allowlisted(self):
+        """The near-miss domain must not stand in for the served origin.
 
-        `https://arogyaai.vercel.app` serves an earlier build of this product
-        (title "Arogya AI"), so it is a legitimate second frontend rather than a
-        lookalike. Both origins stay on the allowlist so fixing the current
-        build does not break the older one.
+        `https://arogyaai.vercel.app` serves an older generation of this app
+        whose bundle calls a different backend (`ai-health-n4i4.onrender.com`),
+        so it does not consume this API. Allowlisting it would widen the CORS
+        surface for no benefit; the exact served origin is what belongs here.
         """
-        client = TestClient(app)
-        response = client.options(
-            "/api/predict",
-            headers={
-                "Origin": "https://arogyaai.vercel.app",
-                "Access-Control-Request-Method": "POST",
-            },
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(
-            response.headers.get("access-control-allow-origin"),
-            "https://arogyaai.vercel.app",
-        )
+        from backend.core.config import CORS_ORIGINS
+
+        self.assertNotIn("https://arogyaai.vercel.app", CORS_ORIGINS)
 
     def test_preflight_from_the_deployed_origin_succeeds(self):
         """An OPTIONS preflight from the real origin gets 200 + allow-origin."""

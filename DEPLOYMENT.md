@@ -127,7 +127,7 @@ gitignored). For a deployment, set these in the host's dashboard.
 | `GEMINI_API_KEY` | **required** | — | Server-side only. Without it the Ayurvedic narrative degrades but prediction still works. |
 | `FIREBASE_PROJECT_ID` | defaulted | `arogyaai-cloud-ad667` | Token `aud`/`iss` are derived from it. Wrong value ⇒ every token rejected. |
 | `AROGYA_AUTH_REQUIRED` | defaulted | `true` | **Never set false in a deployment.** |
-| `AROGYA_CORS_ORIGINS` | defaulted | localhost ports + `https://arogyaai.vercel.app` | Must include the real frontend origin or the browser blocks all calls. |
+| `AROGYA_CORS_ORIGINS` | defaulted | localhost ports + both Vercel origins (see note) | Must include the exact served origin, or preflight fails with 400 and the browser blocks every call — with no server-side error. |
 | `AROGYA_CONFIDENCE_THRESHOLD` | defaulted | `35.0` | Safety gate; not a validated threshold. |
 | `AROGYA_GEMINI_MODELS` | defaulted | 3-model fallback chain | Tried in order. |
 | `AROGYA_RATE_LIMIT_PER_MINUTE` | defaulted | `30` | `0` disables. Per-process — see §5. |
