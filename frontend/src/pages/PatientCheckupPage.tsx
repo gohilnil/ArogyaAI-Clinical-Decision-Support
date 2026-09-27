@@ -96,7 +96,10 @@ export default function PatientCheckup({
         )}
 
         <div className="space-y-4">
-          <label className="text-xl font-black text-slate-900">
+          <label
+            htmlFor="symptom-entry"
+            className="text-xl font-black text-slate-900"
+          >
             How are you feeling?
           </label>
           <p className="text-slate-500 font-medium text-sm">
@@ -104,6 +107,7 @@ export default function PatientCheckup({
             changes you have noticed recently.
           </p>
           <textarea
+            id="symptom-entry"
             value={symptoms}
             onChange={(e) => setSymptoms(e.target.value)}
             className="w-full p-6 h-64 text-lg font-medium rounded-[2rem] border-2 border-slate-200/60 bg-slate-50 focus:ring-4 focus:ring-emerald-200 outline-none resize-none shadow-inner"
