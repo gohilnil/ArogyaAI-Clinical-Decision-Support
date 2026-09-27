@@ -32,8 +32,14 @@ stage degrades and the first is unaffected.
 
 `backend/ai/gemini_service.py` iterates `GEMINI_MODELS` in order
 (`AROGYA_GEMINI_MODELS`, default `gemini-flash-latest`,
-`gemini-flash-lite-latest`, `gemini-2.5-flash`). Each attempt is wrapped so a
-failure moves to the next model rather than raising.
+`gemini-flash-lite-latest`). Each attempt is wrapped so a failure moves to the
+next model rather than raising.
+
+Both entries are provider-maintained `-latest` aliases, and that is deliberate:
+every pinned model name was verified to be rejected by the provider with
+`404 ... no longer available to new users` — including `gemini-2.5-flash`, which
+was the third entry until 2026-09-27 and could never succeed. Do not add a
+version-pinned name here expecting it to work.
 
 If **every** model fails, the function returns a fixed message:
 

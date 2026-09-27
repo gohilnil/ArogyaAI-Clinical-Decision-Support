@@ -41,7 +41,7 @@ rule-based knowledge base or offline recommendation database.
 | Database | Firebase Firestore (NoSQL document store) |
 | Auth | Firebase Authentication |
 | ML | scikit-learn **Logistic Regression**, joblib-persisted artifact |
-| GenAI | Google Gemini (via `google-generativeai` on the backend) |
+| GenAI | Google Gemini (via the supported `google-genai` SDK on the backend) |
 | ML dataset | `enhanced_ayurvedic_treatment_dataset.csv` — 4,201 rows, 399 labels |
 
 ## 4. Database
@@ -95,8 +95,9 @@ leakage-affected. See `MODEL_CARD.md`.
 
 The backend builds a templated Ayurvedic prompt from the profile and the ML
 prediction, calls Gemini, and returns the text as the narrative. Model fallback
-chain: `gemini-flash-latest` → `gemini-flash-lite-latest` → `gemini-2.5-flash`.
-On total failure it returns a safe "unavailable" message and does not crash.
+chain: `gemini-flash-latest` → `gemini-flash-lite-latest` (both are
+provider-maintained aliases; pinned version names are rejected with 404). On
+total failure it returns a safe "unavailable" message and does not crash.
 
 ## 10. Data-storage flow
 
