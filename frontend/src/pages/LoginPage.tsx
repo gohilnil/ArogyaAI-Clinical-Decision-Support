@@ -259,7 +259,21 @@ export default function LoginPage() {
   return (
       <div className="min-h-screen bg-slate-900 grid grid-cols-1 lg:grid-cols-2">
         <div className="bg-emerald-950 p-10 lg:p-20 flex flex-col justify-between relative overflow-hidden hidden lg:flex">
-          <div className="absolute inset-0 opacity-10 bg-[url('https://grainy-gradients.vercel.app/gradients/6.png')] bg-cover"></div>
+          {/* Decorative texture, drawn locally. This previously loaded a PNG
+              from a third-party host (grainy-gradients.vercel.app) that now
+              answers 402 Payment Required, so every page load logged a failed
+              request for a purely cosmetic asset. A radial gradient needs no
+              network, cannot break, and costs nothing. */}
+          <div
+            className="absolute inset-0 opacity-20"
+            style={{
+              backgroundImage:
+                "radial-gradient(circle at 20% 20%, rgba(16,185,129,0.35) 0%, transparent 45%)," +
+                "radial-gradient(circle at 80% 60%, rgba(20,184,166,0.30) 0%, transparent 50%)," +
+                "radial-gradient(circle at 50% 100%, rgba(5,150,105,0.25) 0%, transparent 55%)",
+            }}
+            aria-hidden="true"
+          />
           <div className="relative z-10 flex items-center gap-3">
             <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-3 rounded-2xl">
               <Leaf className="text-white w-8 h-8" />
