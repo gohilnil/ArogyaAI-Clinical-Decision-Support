@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Building, Shield, CheckCircle2, AlertCircle } from "lucide-react";
 import type { User as FirebaseUser } from "firebase/auth";
-import { linkPatientAccount } from "../services/firestore";
+import {
+  attachMyOrphanedLogs,
+  linkPatientAccount,
+} from "../services/firestore";
 import { getApiBaseUrl } from "../services/api";
 import type { UserData } from "../types";
 
@@ -69,17 +72,32 @@ export default function ProfileSettings({
    * account to exactly one patients/{id} record, so the patient can read their
    * own history. Firestore rules verify the target exists and is in the same
    * clinic; they reject anything else.
+   *
+   * Linking also adopts any diary entries written BEFORE the link, which is what
+   * makes them visible to the patient's history and usable by a practitioner.
+   * That adoption runs after the link succeeds and is best-effort: failing to
+   * attach an old entry must not undo a successful link.
    */
   const handleLink = async () => {
     if (!user) return;
     setLinking(true);
     setLinkMessage(null);
+    const code = patientCode.trim();
     try {
-      await linkPatientAccount(user.uid, patientCode);
+      await linkPatientAccount(user.uid, code);
+      let attached = 0;
+      if (code) {
+        attached = await attachMyOrphanedLogs(user.uid, code).catch((e) => {
+          console.error("Could not attach earlier diary entries:", e);
+          return 0;
+        });
+      }
       setLinkMessage({
         ok: true,
-        text: patientCode.trim()
-          ? "Linked. Your assessment history is now available."
+        text: code
+          ? attached > 0
+            ? `Linked. Your assessment history is now available, and ${attached} earlier diary ${attached === 1 ? "entry is" : "entries are"} now attached to it.`
+            : "Linked. Your assessment history is now available."
           : "Unlinked. Your account is no longer connected to a health record.",
       });
     } catch (e) {

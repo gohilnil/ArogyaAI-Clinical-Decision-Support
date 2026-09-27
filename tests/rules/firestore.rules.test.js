@@ -557,6 +557,58 @@ test("logs are append-only", async () => {
   await assertFails(deleteDoc(doc(as(PATIENT_1), "patient_logs", "log1")));
 });
 
+// An entry written before the account was linked carries no patientId, so it
+// appears in the clinic diary but cannot be opened for analysis against a
+// patient and never reaches the patient's own history. The single permitted
+// update is letting the author attach it to their OWN linked record.
+test("a linked patient can attach their own entry to their patient record", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), { patientId: "P001" }),
+  );
+});
+
+test("a patient CANNOT attach their entry to someone else's record", async () => {
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), { patientId: "P002" }),
+  );
+});
+
+test("an UNLINKED patient cannot attach an entry", async () => {
+  // patient-2 has no patientId, so there is no record to attach to.
+  await assertFails(
+    updateDoc(doc(as(PATIENT_2), "patient_logs", "log1"), { patientId: "P001" }),
+  );
+});
+
+test("a patient CANNOT attach another account's entry", async () => {
+  await assertFails(
+    updateDoc(doc(as(PATIENT_2), "patient_logs", "log1"), { patientId: "P002" }),
+  );
+});
+
+test("attaching cannot smuggle any other change", async () => {
+  // Confining the update to `patientId` is what keeps the diary trustworthy;
+  // without it "attach" would be a way to rewrite clinical history.
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), {
+      patientId: "P001",
+      symptoms: "rewritten",
+    }),
+  );
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "patient_logs", "log1"), {
+      patientId: "P001",
+      clinicId: "CLIN02",
+    }),
+  );
+});
+
+test("a doctor cannot attach a patient's entry", async () => {
+  await assertFails(
+    updateDoc(doc(as(DOCTOR_A), "patient_logs", "log1"), { patientId: "P001" }),
+  );
+});
+
 // ---------------------------------------------------------------------------
 // invites and default-deny
 // ---------------------------------------------------------------------------

@@ -221,7 +221,24 @@ service cloud.firestore {
         && request.resource.data.userId == uid()
         && request.resource.data.clinicId == myClinic();
 
-      allow update, delete: if false;
+      // A patient may attach one of their OWN entries to the single patient
+      // record their account is linked to, and change nothing else.
+      //
+      // Without this an entry written before the account was linked stays
+      // stranded: the entry has no patientId, so a practitioner opening it for
+      // analysis has no patient to prefill, and it never appears on the
+      // patient's own history. The entry is not editable in any other respect —
+      // the affected-keys check confines the update to `patientId`, the author
+      // check stops anyone touching another account's entry, and the value is
+      // pinned to the writer's own linked record rather than a caller-chosen id.
+      allow update: if isSignedIn()
+        && resource.data.userId == uid()
+        && isPatient()
+        && myPatientId() != ''
+        && request.resource.data.patientId == myPatientId()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['patientId']);
+
+      allow delete: if false;
     }
 
     // Deny everything else by default.

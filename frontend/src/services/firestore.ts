@@ -16,6 +16,7 @@ import {
   getDocs,
   query,
   where,
+  updateDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
@@ -275,6 +276,60 @@ export async function createPatientLog(
     patientId: patientId ?? "",
     createdAt: serverTimestamp(),
   });
+}
+
+/**
+ * Attach one of the caller's own diary entries to the patient record their
+ * account is linked to.
+ *
+ * Entries written before the link exists carry no `patientId`. That leaves them
+ * stranded: they appear in the clinic diary, but a practitioner opening one for
+ * analysis has no patient to load, and the entry never reaches the patient's own
+ * history. The rules permit exactly this one change — the affected field — and
+ * pin the value to the writer's own linked record, so this cannot be used to
+ * move an entry to another patient.
+ */
+export async function attachLogToMyRecord(
+  logId: string,
+  patientId: string,
+): Promise<void> {
+  if (!patientId) {
+    throw new DomainError(
+      "Link your account to a health record first, then attach your entries.",
+    );
+  }
+  await updateDoc(doc(db, "patient_logs", logId), { patientId });
+}
+
+/**
+ * Attach every stranded diary entry the caller owns to their linked record.
+ *
+ * Run when a patient redeems their patient code. Until then their earlier
+ * entries have no patient, so a practitioner cannot open them for analysis and
+ * they never appear in the patient's own history — the entries exist but are
+ * unusable, which reads as data loss to both sides.
+ *
+ * Best-effort by design: linking must still succeed if an attachment fails, so
+ * a failure here is logged and reported as a count rather than thrown. Returns
+ * how many entries were attached.
+ */
+export async function attachMyOrphanedLogs(
+  userId: string,
+  patientId: string,
+): Promise<number> {
+  if (!patientId) return 0;
+  const logs = await listMyLogs(userId);
+  const orphaned = logs.filter((log) => !log.patientId);
+  let attached = 0;
+  for (const log of orphaned) {
+    try {
+      await updateDoc(doc(db, "patient_logs", log.id), { patientId });
+      attached += 1;
+    } catch (e) {
+      console.error("Could not attach diary entry", log.id, e);
+    }
+  }
+  return attached;
 }
 
 /**
