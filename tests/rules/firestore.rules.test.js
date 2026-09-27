@@ -43,6 +43,10 @@ const DOCTOR_B = { uid: "doctor-b", role: "doctor", clinicId: "CLIN02", email: "
 const PATIENT_1 = { uid: "patient-1", role: "patient", clinicId: "CLIN01", email: "p1@test.test", patientId: "P001" };
 // patient-2 is unlinked, so it owns no patient record.
 const PATIENT_2 = { uid: "patient-2", role: "patient", clinicId: "CLIN01", email: "p2@test.test" };
+// patient-3 is linked to P003, a LEGACY record with no `createdBy` field.
+// Records created before that field existed look like this, and they are the
+// ones most likely to carry a wrong name — so the update path must handle them.
+const PATIENT_3 = { uid: "patient-3", role: "patient", clinicId: "CLIN01", email: "p3@test.test", patientId: "P003" };
 
 /** A context whose caller has a provisioned users/{uid} profile. */
 function as(user) {
@@ -56,7 +60,7 @@ function anon() {
 async function seed() {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
-    for (const u of [DOCTOR_A, DOCTOR_B, PATIENT_1, PATIENT_2]) {
+    for (const u of [DOCTOR_A, DOCTOR_B, PATIENT_1, PATIENT_2, PATIENT_3]) {
       const profile = { email: u.email, role: u.role, clinicId: u.clinicId };
       if (u.patientId) profile.patientId = u.patientId;
       await setDoc(doc(db, "users", u.uid), profile);
@@ -73,6 +77,13 @@ async function seed() {
     await setDoc(doc(db, "patients", "PB01"), {
       name: "Beta Person", age: "50", gender: "Male", dosha: "Kapha",
       clinicId: "CLIN02", createdBy: "doctor-b",
+    });
+    // A legacy record: no `createdBy` at all. Reading a missing field in a rule
+    // raises an evaluation error, so this shape is what broke patient self-edit
+    // on exactly the records that needed it.
+    await setDoc(doc(db, "patients", "P003"), {
+      name: "Legacy Name", age: "45", gender: "Female", dosha: "Vata",
+      clinicId: "CLIN01",
     });
     // Assessments (clinical events) under each patient.
     await setDoc(doc(db, "patients", "P001", "assessments", "A001"), {
@@ -343,6 +354,33 @@ test("a linked patient CAN correct their own identity fields", async () => {
   );
   await assertSucceeds(
     updateDoc(doc(as(PATIENT_1), "patients", "P001"), { heightCm: 164 }),
+  );
+});
+
+// The bug this pins: `createdBy` is absent on records created before that field
+// existed, and reading a missing field in a rule raises an evaluation error that
+// denies the whole request. Comparing createdBy directly therefore rejected every
+// edit to a legacy record — the exact records most likely to carry a wrong name.
+test("a patient CAN correct a LEGACY record that has no createdBy field", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(PATIENT_3), "patients", "P003"), { name: "Corrected Name" }),
+  );
+});
+
+test("a legacy record cannot silently GAIN a createdBy value", async () => {
+  // The safe read compares defaults, so "absent" stays absent rather than
+  // letting an update quietly claim authorship.
+  await assertFails(
+    updateDoc(doc(as(PATIENT_3), "patients", "P003"), {
+      name: "Corrected Name",
+      createdBy: "patient-3",
+    }),
+  );
+});
+
+test("a doctor can also correct a legacy record in their own clinic", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(DOCTOR_A), "patients", "P003"), { name: "Doctor Corrected" }),
   );
 });
 
