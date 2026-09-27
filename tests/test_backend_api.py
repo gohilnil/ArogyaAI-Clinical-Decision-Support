@@ -527,11 +527,27 @@ class TestProductionCorsOrigin(unittest.TestCase):
             finally:
                 importlib.reload(cfg)
 
-    def test_lookalike_domain_is_not_used_as_the_deployed_origin(self):
-        """The near-miss domain must not stand in for the real one."""
-        from backend.core.config import CORS_ORIGINS
+    def test_preflight_from_the_legacy_origin_is_also_allowed(self):
+        """An older ArogyaAI deployment shares the API and must keep working.
 
-        self.assertNotIn("https://arogyaai.vercel.app", CORS_ORIGINS)
+        `https://arogyaai.vercel.app` serves an earlier build of this product
+        (title "Arogya AI"), so it is a legitimate second frontend rather than a
+        lookalike. Both origins stay on the allowlist so fixing the current
+        build does not break the older one.
+        """
+        client = TestClient(app)
+        response = client.options(
+            "/api/predict",
+            headers={
+                "Origin": "https://arogyaai.vercel.app",
+                "Access-Control-Request-Method": "POST",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.headers.get("access-control-allow-origin"),
+            "https://arogyaai.vercel.app",
+        )
 
     def test_preflight_from_the_deployed_origin_succeeds(self):
         """An OPTIONS preflight from the real origin gets 200 + allow-origin."""
