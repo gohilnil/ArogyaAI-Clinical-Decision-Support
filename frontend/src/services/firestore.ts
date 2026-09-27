@@ -50,6 +50,10 @@ export interface NewPatientInput {
   gender?: string;
   dosha?: string;
   email?: string;
+  /** Measurements are carried on the person so a returning patient does not
+   *  have their height and weight retyped at every visit. */
+  heightCm?: number;
+  weightKg?: number;
 }
 
 /** Create a patient (a person). Returns the new stable patientId. */
@@ -68,6 +72,8 @@ export async function createPatient(
     gender: input.gender?.trim() || "",
     dosha: input.dosha?.trim() || "",
     email: input.email?.trim() || "",
+    heightCm: input.heightCm ?? null,
+    weightKg: input.weightKg ?? null,
     clinicId: clinic,
     createdBy,
     createdAt: serverTimestamp(),
@@ -105,6 +111,10 @@ export async function updatePatient(
     const value = changes[key];
     if (value !== undefined) payload[key] = value;
   }
+  // Measurements are optional and only written when supplied, so a visit that
+  // omits them does not blank the values recorded previously.
+  if (changes.heightCm !== undefined) payload.heightCm = changes.heightCm;
+  if (changes.weightKg !== undefined) payload.weightKg = changes.weightKg;
   if (payload.name === "") throw new DomainError("Patient name is required.");
   await setDoc(doc(db, "patients", patientId), payload, { merge: true });
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import type * as React from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -82,28 +82,46 @@ export default function DiagnosticTool({ userData }: { userData: UserData | null
     load();
   }, [userData]);
 
-  useEffect(() => {
-    if (location.state?.prefillPatientId) {
-      setSelectedPatientId(location.state.prefillPatientId);
-    }
-  }, [location.state]);
+  /**
+   * Copy a chosen patient's details into the form.
+   *
+   * This is what makes an existing-patient assessment correct: the form values
+   * are what the analysis runs against AND what gets persisted, so leaving them
+   * blank while the dropdown showed a name meant the clinician retyped data the
+   * system already had — and a mis-typed age or sex silently changed the result.
+   *
+   * Height and weight are carried too when the record has them, so a returning
+   * patient does not have their measurements re-entered every visit. They are
+   * left untouched when absent rather than blanked, since a record created
+   * before these were stored has no value to copy.
+   */
+  const applyPatient = useCallback(
+    (patientId: string) => {
+      setSelectedPatientId(patientId);
+      if (!patientId) return;
+      const p = patients.find((x) => x.id === patientId);
+      if (!p) return;
+      setFormData((prev) => ({
+        ...prev,
+        name: p.name || "",
+        age: p.age || "",
+        gender: p.gender || prev.gender,
+        dosha: p.dosha || prev.dosha,
+        height: p.heightCm ? String(p.heightCm) : prev.height,
+        weight: p.weightKg ? String(p.weightKg) : prev.weight,
+      }));
+    },
+    [patients],
+  );
 
-  /** Applying a chosen patient copies their identity into the form so the
-   *  clinician does not retype it, and so the assessment records the values
-   *  the analysis actually ran against. */
-  const applyPatient = (patientId: string) => {
-    setSelectedPatientId(patientId);
-    if (!patientId) return;
-    const p = patients.find((x) => x.id === patientId);
-    if (!p) return;
-    setFormData((prev) => ({
-      ...prev,
-      name: p.name || "",
-      age: p.age || "",
-      gender: p.gender || prev.gender,
-      dosha: p.dosha || prev.dosha,
-    }));
-  };
+  // Opening the tool from a diary entry or a patient record passes the patient
+  // id; the full details are applied once the patient list has loaded, since
+  // the lookup above needs it. This previously only set the id, which left the
+  // dropdown showing a name above empty fields.
+  useEffect(() => {
+    const id = location.state?.prefillPatientId;
+    if (id && patients.length > 0) applyPatient(id);
+  }, [location.state, patients, applyPatient]);
 
   useEffect(() => {
     if (location.state && location.state.prefillSymptoms) {

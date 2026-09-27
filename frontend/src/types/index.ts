@@ -64,6 +64,10 @@ export interface Patient {
   gender?: string;
   dosha?: string;
   email?: string;
+  /** Last recorded measurements. Optional: records created before these were
+   *  stored simply have no value, and the form falls back to asking. */
+  heightCm?: number;
+  weightKg?: number;
   clinicId: string;
   createdBy?: string;
   createdAt?: FirestoreTimestamp;
