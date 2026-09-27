@@ -570,38 +570,51 @@ class TestProductionCorsOrigin(unittest.TestCase):
 
 
 class TestFirestoreIndexConfiguration(unittest.TestCase):
-    """Regression: the dashboard's clinic-wide assessment query needs an index.
+    """Regression: BOTH assessment queries need their own index scope.
 
-    `listClinicAssessments` runs a collection-group query
-    (`collectionGroup('assessments').where('clinicId','==',...)`). Firestore
-    refuses to serve it without a COLLECTION_GROUP index on `assessments.clinicId`
-    and answers HTTP 400 FAILED_PRECONDITION — which the dashboard surfaced as
-    "Could not load clinic statistics."
+    Two different reads filter `assessments` on `clinicId`:
 
-    `firestore.indexes.json` declared no index at all, so the query could never
-    succeed in any environment. This pins the required index into the repository
-    so it cannot be dropped again.
+      * the clinic dashboard runs a COLLECTION GROUP query
+        (`collectionGroup('assessments').where('clinicId','==',...)`)
+      * a patient's detail page runs a plain COLLECTION query against the
+        subcollection (`patients/{id}/assessments`, where `clinicId == ...`)
+
+    Firestore serves each only with an index of the matching scope, and a
+    `fieldOverrides` entry REPLACES a field's default indexes rather than adding
+    to them. Declaring only COLLECTION_GROUP therefore satisfied the dashboard
+    while breaking the detail page — a failure the browser suite missed because
+    it exercised the patient LIST and never opened a patient. Both scopes must be
+    listed explicitly, and this test exists so one cannot be dropped again.
     """
 
-    def test_assessments_clinicid_collection_group_index_is_declared(self):
+    REQUIRED_SCOPES = {"COLLECTION", "COLLECTION_GROUP"}
+
+    def _declared_scopes(self):
         path = os.path.join(PROJECT_ROOT, "firestore.indexes.json")
         with open(path, encoding="utf-8") as handle:
             config = json.load(handle)
 
-        matches = [
-            override
-            for override in config.get("fieldOverrides", [])
-            if override.get("collectionGroup") == "assessments"
-            and override.get("fieldPath") == "clinicId"
-            and any(
-                index.get("queryScope") == "COLLECTION_GROUP"
-                for index in override.get("indexes", [])
-            )
-        ]
-        self.assertTrue(
-            matches,
-            "firestore.indexes.json must declare a COLLECTION_GROUP index on "
-            "assessments.clinicId or the clinic dashboard query returns 400",
+        scopes = set()
+        for override in config.get("fieldOverrides", []):
+            if (
+                override.get("collectionGroup") == "assessments"
+                and override.get("fieldPath") == "clinicId"
+            ):
+                for index in override.get("indexes", []):
+                    scopes.add(index.get("queryScope"))
+        return scopes
+
+    def test_both_assessment_query_scopes_are_declared(self):
+        scopes = self._declared_scopes()
+        missing = self.REQUIRED_SCOPES - scopes
+        self.assertFalse(
+            missing,
+            "firestore.indexes.json must declare both index scopes for "
+            f"assessments.clinicId; missing {sorted(missing)}. COLLECTION_GROUP "
+            "serves the clinic dashboard and COLLECTION serves a patient's own "
+            "assessment history; a fieldOverrides entry replaces the field's "
+            "defaults rather than extending them, so omitting either breaks a "
+            "user-visible page.",
         )
 
 
