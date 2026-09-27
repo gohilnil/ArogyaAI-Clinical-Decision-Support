@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   deleteUser,
+  sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
 import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
@@ -54,6 +55,8 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState(takeStashedAuthError);
+  /** Positive confirmation shown after a reset email is requested. */
+  const [resetNotice, setResetNotice] = useState("");
   const [selectedRole, setSelectedRole] = useState<"patient" | "doctor">(
     "patient",
   );
@@ -224,6 +227,35 @@ export default function LoginPage() {
     }
   };
 
+  /**
+   * Send a password-reset email for the address in the form.
+   *
+   * Firebase deliberately does not reveal whether an address is registered, so
+   * this reports the same success message either way. Saying "no such account"
+   * would turn the form into an oracle for which emails exist.
+   */
+  const handlePasswordReset = async () => {
+    const address = email.trim();
+    if (!address) {
+      setAuthError("Enter your email address first, then choose Reset password.");
+      return;
+    }
+    if (isSubmitting) return;
+    setAuthError("");
+    setIsSubmitting(true);
+    try {
+      await sendPasswordResetEmail(auth, address);
+      setResetNotice(
+        `If an account exists for ${address}, a password reset link is on its way. Check your inbox and spam folder.`,
+      );
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message.replace("Firebase: ", "") : "Could not send the reset email.";
+      setAuthError(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
       <div className="min-h-screen bg-slate-900 grid grid-cols-1 lg:grid-cols-2">
         <div className="bg-emerald-950 p-10 lg:p-20 flex flex-col justify-between relative overflow-hidden hidden lg:flex">
@@ -286,6 +318,12 @@ export default function LoginPage() {
             {authError && (
               <div className="p-4 bg-red-100 text-red-700 font-bold rounded-xl text-sm">
                 {authError}
+              </div>
+            )}
+
+            {resetNotice && (
+              <div className="p-4 bg-emerald-100 text-emerald-800 font-bold rounded-xl text-sm">
+                {resetNotice}
               </div>
             )}
 
@@ -371,6 +409,17 @@ export default function LoginPage() {
                     : "Register"}{" "}
                 <LogIn size={22} />
               </button>
+
+              {isLogin && (
+                <button
+                  type="button"
+                  onClick={handlePasswordReset}
+                  disabled={isSubmitting}
+                  className="w-full text-center text-slate-500 font-bold text-sm hover:text-emerald-600 transition-colors disabled:opacity-60"
+                >
+                  Forgot your password? Send a reset link.
+                </button>
+              )}
             </form>
 
             <div className="relative flex items-center py-2">
