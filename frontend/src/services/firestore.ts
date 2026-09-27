@@ -17,12 +17,14 @@ import {
   query,
   where,
   updateDoc,
+  deleteField,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
 import type {
   AnalysisResult,
   Assessment,
+  AuditLogEntry,
   Clinic,
   Patient,
   PatientLog,
@@ -423,29 +425,131 @@ export async function listPendingDoctors(): Promise<UserDataWithId[]> {
   return all.filter((u) => u.role === "doctor" && (u as UserDataWithId).status === "pending");
 }
 
+/** The administrator performing an audited action: their uid and email. */
+export interface AuditActor {
+  uid: string;
+  email: string;
+}
+
 /**
- * Correct an account's role, clinic, or email. Admin-only by rule; the rules
- * still validate consistency (role in the known set, 6-char clinic), so this
- * call only needs to pass the change through.
+ * Append one administrative action to the audit trail.
+ *
+ * Written from the admin's own client, so this is an accountability record
+ * rather than a tamper-proof one — an operator who bypassed the app could
+ * write whatever they liked. It is what an audit of the PRODUCT asks for, and
+ * the rules still constrain it (admin-only, actor must be the caller,
+ * append-only). A hardened deployment would move this server-side.
+ *
+ * A failure here must not fail the action it describes: the role change has
+ * already been applied, and reporting an error the operator cannot act on
+ * would be worse than a missing log line. So this is best-effort and logs to
+ * the console on failure.
+ */
+async function writeAudit(actor: AuditActor, entry: {
+  action: string;
+  summary: string;
+  targetId: string;
+  targetLabel?: string;
+  before?: Record<string, string>;
+  after?: Record<string, string>;
+}): Promise<void> {
+  try {
+    await addDoc(collection(db, "audit_logs"), {
+      actorUid: actor.uid,
+      actorEmail: actor.email,
+      action: entry.action,
+      summary: entry.summary,
+      targetId: entry.targetId,
+      targetLabel: entry.targetLabel ?? "",
+      before: entry.before ?? {},
+      after: entry.after ?? {},
+      at: serverTimestamp(),
+    });
+  } catch (e) {
+    console.error("Could not write the audit entry:", e);
+  }
+}
+
+/** Every audit entry, newest first. Admin-only by rule. */
+export async function listAuditLogs(): Promise<AuditLogEntry[]> {
+  const snap = await getDocs(collection(db, "audit_logs"));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<AuditLogEntry, "id">) }))
+    .sort((a, b) => (b.at?.toMillis() || 0) - (a.at?.toMillis() || 0));
+}
+
+/**
+ * Correct an account's role, clinic, email or patient link. Admin-only by rule.
+ *
+ * `clinicId` and `patientId` accept null to REMOVE the field. An admin account
+ * has neither: an operator belongs to no clinic and holds no patient record, so
+ * the keys are absent rather than empty. The rules enforce this — an admin
+ * document carrying a clinic or a link is refused — so promoting an account to
+ * admin MUST clear both in the same write, which is why the panel sends null
+ * for them. A patient or doctor always keeps a real clinic.
+ *
+ * `actor` is optional so the call sites that do not audit are not forced to
+ * supply one. When present, the change is recorded.
  */
 export async function adminUpdateUser(
   userId: string,
   changes: {
     role?: string;
-    clinicId?: string;
+    clinicId?: string | null;
     email?: string;
+    patientId?: string | null;
     status?: "approved" | "pending" | "rejected";
   },
+  actor?: AuditActor,
+  context?: { targetLabel?: string; before?: Record<string, string> },
 ): Promise<void> {
-  await updateDoc(doc(db, "users", userId), changes);
+  const payload: Record<string, unknown> = { ...changes };
+  // null means "remove this field". deleteField() is the only way to unset a
+  // key in Firestore; writing '' would leave a field that still exists.
+  for (const key of ["clinicId", "patientId"] as const) {
+    if (changes[key] === null) payload[key] = deleteField();
+  }
+  await updateDoc(doc(db, "users", userId), payload);
+  if (!actor) return;
+  const changed = Object.keys(changes).filter(
+    (k) => changes[k as keyof typeof changes] !== undefined,
+  );
+  await writeAudit(actor, {
+    action: "update-account",
+    summary: `Updated ${changed.join(", ")} on ${context?.targetLabel || userId}.`,
+    targetId: userId,
+    targetLabel: context?.targetLabel,
+    before: context?.before,
+    after: Object.fromEntries(
+      changed.map((k) => [
+        k,
+        changes[k as keyof typeof changes] === null
+          ? "(none)"
+          : String(changes[k as keyof typeof changes]),
+      ]),
+    ),
+  });
 }
 
 /**
  * Approve or reject a pending practitioner. Admin-only by rule; the rules
  * confine status to the known states, so an invalid value is refused there.
  */
-export async function setDoctorStatus(userId: string, status: "approved" | "pending" | "rejected"): Promise<void> {
+export async function setDoctorStatus(
+  userId: string,
+  status: "approved" | "pending" | "rejected",
+  actor?: AuditActor,
+  context?: { targetLabel?: string },
+): Promise<void> {
   await updateDoc(doc(db, "users", userId), { status });
+  if (!actor) return;
+  await writeAudit(actor, {
+    action: `status-${status}`,
+    summary: `${status === "approved" ? "Approved" : status === "rejected" ? "Rejected" : "Set pending"} ${context?.targetLabel || userId}.`,
+    targetId: userId,
+    targetLabel: context?.targetLabel,
+    after: { status },
+  });
 }
 
 // ---------------------------------------------------------------------------

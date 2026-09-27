@@ -74,8 +74,17 @@ service cloud.firestore {
       return isSignedIn() && profile().role == 'admin';
     }
 
+    // The caller's clinic, or '' when they have none.
+    //
+    // Read with `.get(k, '')` rather than a direct `.clinicId`: an ADMIN has no
+    // clinic field at all (an operator belongs to no clinic), and a direct read
+    // of a missing key raises an evaluation error — which would deny every
+    // request that touches this helper, not merely return false. An empty
+    // string is also never a valid clinic id, so '' can only ever fail the
+    // clinic comparisons below, which is the correct outcome for a role with no
+    // clinic: it matches no real clinic's records.
     function myClinic() {
-      return profile().clinicId;
+      return profile().get('clinicId', '');
     }
 
     // The patient record this account is linked to, or '' when unlinked.
@@ -92,6 +101,34 @@ service cloud.firestore {
 
     function isClinicId(v) {
       return v is string && v.size() == 6;
+    }
+
+    // Whether an account's `clinicId` is acceptable FOR ITS ROLE.
+    //
+    // A patient or a doctor MUST carry a real 6-character clinic: it is the
+    // tenancy boundary every clinical read is scoped by, so an account without
+    // one would own records nothing could ever reach.
+    //
+    // An ADMIN must carry NONE. An operator works across every clinic and
+    // belongs to none, so `clinicId` is not merely optional for an admin — it
+    // is forbidden. Accepting one "just in case" would leave a field that
+    // asserts a tenancy the role does not have, which is exactly the confusion
+    // this removes: an admin's clinic meant nothing, was never read by any
+    // rule, and appeared in the UI as though it did.
+    //
+    // Callers pass the field with `.get('clinicId', '')`, so an ABSENT key and
+    // an empty string are both read as ''. That is what makes the requirement
+    // enforceable: absence is the state we want, and a direct `.clinicId` read
+    // would instead raise an evaluation error and deny the whole request.
+    function clinicFieldOk(role, clinicId) {
+      return role == 'admin' ? clinicId == '' : isClinicId(clinicId);
+    }
+
+    // An administrator carries no clinic AND no patient link. Both are tenancy
+    // facts that belong to the patient/doctor roles; leaving a stale one behind
+    // after promoting an account would be data that lingers but means nothing.
+    function adminCarriesNoTenancy(data) {
+      return data.get('clinicId', '') == '' && data.get('patientId', '') == '';
     }
 
         // A patient may only link to a patient record that exists and belongs to
@@ -121,10 +158,13 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && userId == uid()
         && request.resource.data.email is string
-        && isClinicId(request.resource.data.clinicId)
+        && clinicFieldOk(
+             request.resource.data.get('role', ''),
+             request.resource.data.get('clinicId', '')
+           )
         && validPatientLink(
              request.resource.data.get('patientId', ''),
-             request.resource.data.clinicId
+             request.resource.data.get('clinicId', '')
            )
         && (
           request.resource.data.role == 'patient'
@@ -147,31 +187,51 @@ service cloud.firestore {
       // the account to remain internally consistent: a patient's patientId
       // must belong to the account's clinic, and the role and status must be
       // within their known sets.
+      //
+      // TENANCY IS CONDITIONAL ON ROLE, AND THAT IS THE WHOLE POINT.
+      //
+      //   * patient / doctor -> a real 6-character clinic is REQUIRED, because
+      //     it is the boundary their clinical reads are scoped by; and a
+      //     patient's link, when present, must resolve inside that clinic.
+      //   * admin            -> a clinic is FORBIDDEN, and so is a patient
+      //     link. An operator works across every clinic and belongs to none.
+      //     Tolerating a value "just in case" would leave a field asserting a
+      //     tenancy the role does not have — the exact confusion being removed.
+      //
+      // Promoting an account to admin therefore REQUIRES clearing its clinic
+      // and link in the same write; the frontend does this with deleteField().
       allow update: if (
           (isSignedIn() && userId == uid()
-            && request.resource.data.role == resource.data.role
-            && request.resource.data.clinicId == resource.data.clinicId
-            && request.resource.data.email == resource.data.email
+            && request.resource.data.get('role', '') == resource.data.get('role', '')
+            && request.resource.data.get('clinicId', '')
+               == resource.data.get('clinicId', '')
+            && request.resource.data.get('email', '') == resource.data.get('email', '')
             && request.resource.data.get('status', 'approved')
                == resource.data.get('status', 'approved')
             && (
-              resource.data.role == 'doctor'
+              resource.data.get('role', '') == 'doctor'
               || validPatientLink(
                    request.resource.data.get('patientId', ''),
-                   resource.data.clinicId
+                   resource.data.get('clinicId', '')
                  )
             )
           )
           || (
             isAdmin()
-            && request.resource.data.role in ['patient', 'doctor', 'admin']
-            && isClinicId(request.resource.data.clinicId)
+            && request.resource.data.get('role', '') in ['patient', 'doctor', 'admin']
             && (
-              request.resource.data.role != 'patient'
-              || validPatientLink(
-                   request.resource.data.get('patientId', ''),
-                   request.resource.data.clinicId
-                 )
+              request.resource.data.get('role', '') == 'admin'
+                ? adminCarriesNoTenancy(request.resource.data)
+                : (
+                    isClinicId(request.resource.data.get('clinicId', ''))
+                    && (
+                      request.resource.data.get('role', '') != 'patient'
+                      || validPatientLink(
+                           request.resource.data.get('patientId', ''),
+                           request.resource.data.get('clinicId', '')
+                         )
+                    )
+                  )
             )
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
                  'role', 'clinicId', 'email', 'patientId', 'status'
@@ -341,6 +401,40 @@ service cloud.firestore {
       // A clinic is retained: deleting it would orphan every account and record
       // that carries its id.
       allow delete: if false;
+    }
+
+    // ---------- audit_logs ----------
+    // An append-only record of administrative actions: who approved, rejected,
+    // or edited which account, and what the previous value was.
+    //
+    // WHY A CLIENT-WRITTEN LOG IS STILL WORTH KEEPING
+    // ----------------------------------------------
+    // This is written by the admin's own client, so it is an accountability
+    // trail rather than a tamper-proof one: an operator who bypassed the app
+    // could write whatever they liked. It is honest about that. What it does
+    // give — and what no amount of care in the panel could — is a record of the
+    // actions taken THROUGH the product, which is the thing an audit asks for.
+    // A hardened deployment would move this write server-side; that is a
+    // follow-up, not something to claim now.
+    //
+    // The rules constrain it exactly as far as they can:
+    //   * only an admin may write one, so a non-admin cannot forge entries;
+    //   * the actor must be the caller's own uid, so an admin cannot attribute
+    //     an action to somebody else;
+    //   * entries are immutable once written, so history cannot be rewritten.
+    match /audit_logs/{logId} {
+      allow read: if isAdmin();
+
+      allow create: if isAdmin()
+        && request.resource.data.actorUid == uid()
+        && request.resource.data.actorEmail is string
+        && request.resource.data.action is string
+        && request.resource.data.action.size() > 0
+        && request.resource.data.targetId is string
+        && request.resource.data.at is timestamp;
+
+      // An audit entry is a historical fact: never edited, never removed.
+      allow update, delete: if false;
     }
 
     // Deny everything else by default.

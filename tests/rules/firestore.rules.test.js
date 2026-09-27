@@ -28,6 +28,7 @@ import {
   where,
   getDocs,
   deleteDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { readFileSync } from "node:fs";
 import { test, before, after, beforeEach } from "node:test";
@@ -47,8 +48,11 @@ const PATIENT_2 = { uid: "patient-2", role: "patient", clinicId: "CLIN01", email
 // Records created before that field existed look like this, and they are the
 // ones most likely to carry a wrong name — so the update path must handle them.
 const PATIENT_3 = { uid: "patient-3", role: "patient", clinicId: "CLIN01", email: "p3@test.test", patientId: "P003" };
-// The platform operator. Provisioned out-of-band.
-const ADMIN = { uid: "admin-1", role: "admin", clinicId: "CLIN01", email: "admin@arogyaai.test" };
+// The platform operator. Provisioned out-of-band, and deliberately WITHOUT a
+// clinicId: an operator belongs to no clinic, so the real document has no such
+// key. Seeding it that way is what proves the rules never read the field
+// directly — a direct read of a missing key is an evaluation error, not false.
+const ADMIN = { uid: "admin-1", role: "admin", email: "admin@arogyaai.test" };
 
 /** A context whose caller has a provisioned users/{uid} profile. */
 function as(user) {
@@ -63,7 +67,8 @@ async function seed() {
   await testEnv.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
     for (const u of [DOCTOR_A, DOCTOR_B, PATIENT_1, PATIENT_2, PATIENT_3, ADMIN]) {
-      const profile = { email: u.email, role: u.role, clinicId: u.clinicId };
+      const profile = { email: u.email, role: u.role };
+      if (u.clinicId) profile.clinicId = u.clinicId;
       if (u.patientId) profile.patientId = u.patientId;
       await setDoc(doc(db, "users", u.uid), profile);
     }
@@ -899,4 +904,165 @@ test("admin gains NOTHING over clinical data", async () => {
       name: "Admin Patient", clinicId: "CLIN01", createdBy: "admin-1",
     }),
   );
+});
+
+// ---------------------------------------------------------------------------
+// Admin and tenancy (clinic + patient link)
+// ---------------------------------------------------------------------------
+// An operator works across every clinic and belongs to none, so an admin
+// carries NO clinic and NO patient link — the fields are forbidden, not merely
+// optional. A patient or doctor must carry a real clinic: it is the tenancy
+// boundary their clinical reads are scoped by.
+
+test("an admin MAY NOT carry a clinic, even a well-formed one", async () => {
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "admin-1"), { clinicId: "CLIN02" }),
+  );
+});
+
+test("an admin cannot carry a malformed clinic either", async () => {
+  // "NOTSIX" would NOT be a valid case here — it is exactly six characters.
+  // The malformed values are genuinely the wrong length.
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "admin-1"), { clinicId: "SHORT" }),
+  );
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "admin-1"), { clinicId: "TOOLONG9" }),
+  );
+});
+
+test("an admin CANNOT give a patient an empty clinic", async () => {
+  // The exemption is for the admin ROLE, not for the caller. A patient with no
+  // clinic would be a record no clinic-scoped query could ever reach.
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "patient-2"), { clinicId: "" }),
+  );
+});
+
+test("an admin CANNOT give a doctor an empty clinic", async () => {
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "doctor-a"), { clinicId: "" }),
+  );
+});
+
+test("promoting an account to admin REQUIRES clearing its clinic", async () => {
+  // Otherwise the promoted account would keep asserting a tenancy its new role
+  // does not have — the exact confusion the role split removes.
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "doctor-a"), { role: "admin" }),
+  );
+});
+
+test("promoting an account to admin works once the clinic is cleared", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(ADMIN), "users", "doctor-a"), {
+      role: "admin",
+      clinicId: "",
+    }),
+  );
+});
+
+test("promoting a LINKED patient to admin REQUIRES clearing the link too", async () => {
+  // patient-1 is linked to P001. A stale link on an admin would attach a
+  // clinical record to an account that cannot read it.
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "patient-1"), {
+      role: "admin",
+      clinicId: "",
+    }),
+  );
+});
+
+test("promoting a linked patient to admin works once clinic and link are cleared", async () => {
+  await assertSucceeds(
+    updateDoc(doc(as(ADMIN), "users", "patient-1"), {
+      role: "admin",
+      clinicId: "",
+      patientId: "",
+    }),
+  );
+});
+
+test("an admin cannot be given a patient link", async () => {
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "users", "admin-1"), { patientId: "P001" }),
+  );
+});
+
+test("a patient cannot clear their own clinic to escape the boundary", async () => {
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "users", "patient-1"), { clinicId: "" }),
+  );
+});
+
+// --- audit log -------------------------------------------------------------
+// Append-only accountability trail. A client-written log is not tamper-proof,
+// but the rules still enforce everything they structurally can.
+
+const AUDIT = (actorUid = "admin-1") => ({
+  actorUid,
+  actorEmail: "admin@arogyaai.test",
+  action: "status-approved",
+  summary: "Approved someone.",
+  targetId: "awaiting",
+  targetLabel: "aw@clinic.test",
+  before: {},
+  after: { status: "approved" },
+  at: serverTimestamp(),
+});
+
+test("an admin can write an audit entry", async () => {
+  await assertSucceeds(addDoc(collection(as(ADMIN), "audit_logs"), AUDIT()));
+});
+
+test("a non-admin CANNOT write an audit entry", async () => {
+  await assertFails(
+    addDoc(collection(as(DOCTOR_A), "audit_logs"), AUDIT("doctor-a")),
+  );
+});
+
+test("an unauthenticated caller cannot write an audit entry", async () => {
+  await assertFails(addDoc(collection(anon(), "audit_logs"), AUDIT("nobody")));
+});
+
+test("an admin CANNOT attribute an audit entry to somebody else", async () => {
+  // Otherwise the trail could be used to frame another operator.
+  await assertFails(
+    addDoc(collection(as(ADMIN), "audit_logs"), AUDIT("doctor-a")),
+  );
+});
+
+test("an audit entry without an action is refused", async () => {
+  await assertFails(
+    addDoc(collection(as(ADMIN), "audit_logs"), { ...AUDIT(), action: "" }),
+  );
+});
+
+test("an audit entry must carry a timestamp", async () => {
+  const { at, ...noTimestamp } = AUDIT();
+  void at;
+  await assertFails(addDoc(collection(as(ADMIN), "audit_logs"), noTimestamp));
+});
+
+test("a non-admin CANNOT read the audit log", async () => {
+  await assertFails(getDocs(collection(as(DOCTOR_A), "audit_logs")));
+  await assertFails(getDocs(collection(as(PATIENT_1), "audit_logs")));
+});
+
+test("an admin CAN read the audit log", async () => {
+  await assertSucceeds(getDocs(collection(as(ADMIN), "audit_logs")));
+});
+
+test("an audit entry is immutable once written", async () => {
+  await testEnv.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), "audit_logs", "e1"), {
+      actorUid: "admin-1", actorEmail: "admin@arogyaai.test",
+      action: "status-approved", summary: "x", targetId: "t",
+      targetLabel: "", before: {}, after: {}, at: new Date(),
+    });
+  });
+  await assertFails(
+    updateDoc(doc(as(ADMIN), "audit_logs", "e1"), { summary: "rewritten" }),
+  );
+  await assertFails(deleteDoc(doc(as(ADMIN), "audit_logs", "e1")));
 });

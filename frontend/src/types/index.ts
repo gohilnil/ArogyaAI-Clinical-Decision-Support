@@ -49,7 +49,15 @@ export interface AnalysisResult {
 
 export interface UserData {
   role: string;
-  clinicId: string;
+  /** The clinic this account belongs to, or ABSENT for an administrator.
+   *
+   *  A patient or practitioner always carries one: `clinicId` is the tenancy
+   *  boundary their clinical reads are scoped by, so an account without one
+   *  would own records nothing could reach. An ADMIN is a platform operator —
+   *  they work across every clinic and belong to none, so the field is not set
+   *  on an admin document at all. Code that needs a clinic must therefore run
+   *  under a role check, which the clinical pages already do. */
+  clinicId?: string;
   email: string;
   /** Practitioner onboarding state. `pending` until an admin approves the
    *  account; `rejected` denies access. Absent on accounts created before the
@@ -122,6 +130,31 @@ export interface PatientLog {
 export interface FirestoreTimestamp {
   toMillis: () => number;
   toDate: () => Date;
+}
+
+/** One administrative action, as recorded in `audit_logs`.
+ *
+ *  This is an accountability trail written by the admin's own client, not a
+ *  tamper-proof server log — an operator who bypassed the app could write
+ *  whatever they liked. It records what was done THROUGH the product, which is
+ *  what an audit of the product asks for. See the rules for the constraints
+ *  that are enforced (admin-only, actor must be the caller, append-only). */
+export interface AuditLogEntry {
+  id: string;
+  /** The administrator who performed the action. */
+  actorUid: string;
+  actorEmail: string;
+  /** A short machine-readable verb, e.g. "approve-doctor", "update-account". */
+  action: string;
+  /** Human-readable summary shown in the log. */
+  summary: string;
+  /** The account or entity acted upon. */
+  targetId: string;
+  targetLabel?: string;
+  /** Values before and after, for changes that overwrite something. */
+  before?: Record<string, string>;
+  after?: Record<string, string>;
+  at?: FirestoreTimestamp;
 }
 
 /** Organisational details of a clinic. The document id IS the clinic ID that

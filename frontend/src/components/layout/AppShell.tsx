@@ -13,7 +13,12 @@ import PatientDashboard from "../../pages/PatientHomePage";
 import PatientCheckup from "../../pages/PatientCheckupPage";
 import ProfileSettings from "../../pages/ProfilePage";
 import HelpCenter from "../../pages/HelpPage";
-import AdminPanel from "../../pages/AdminPage";
+import AdminLayout from "../../pages/admin/AdminLayout";
+import AdminOverviewPage from "../../pages/admin/OverviewPage";
+import AdminAccountsPage from "../../pages/admin/AccountsPage";
+import AdminApprovalsPage from "../../pages/admin/ApprovalsPage";
+import AdminClinicsPage from "../../pages/admin/ClinicsPage";
+import AdminAuditLogPage from "../../pages/admin/AuditLogPage";
 import type { UserData } from "../../types";
 
 export default function AppShell({
@@ -104,9 +109,20 @@ export default function AppShell({
                 element={<ProfileSettings user={user} userData={userData} />}
               />
               <Route path="/help" element={<HelpCenter />} />
-              {/* The panel itself re-checks the role and renders an explicit
-                  access-denied state for a non-admin reaching the URL. */}
-              <Route path="/admin" element={<AdminPanel userData={userData} />} />
+              {/* The admin section is nested: the layout checks the role, loads
+                  the shared data once, and renders the sub-navigation; each
+                  child page renders inside it. A non-admin reaching any of
+                  these URLs gets the layout's explicit access-denied state. */}
+              <Route
+                path="/admin"
+                element={<AdminLayout user={user} userData={userData} />}
+              >
+                <Route index element={<AdminOverviewPage />} />
+                <Route path="accounts" element={<AdminAccountsPage />} />
+                <Route path="approvals" element={<AdminApprovalsPage />} />
+                <Route path="clinics" element={<AdminClinicsPage />} />
+                <Route path="audit" element={<AdminAuditLogPage />} />
+              </Route>
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

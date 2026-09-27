@@ -52,7 +52,11 @@ export default function PatientDashboard({
         const diary = await listMyLogs(user.uid);
         setLogs(diary);
 
-        if (linked && userData?.patientId) {
+        // A linked record needs BOTH the patient id and a clinic to scope the
+        // query. This page is only routed to a patient, who always has a
+        // clinic — but `clinicId` is optional on the type now (an admin has
+        // none), so the pairing is checked rather than assumed.
+        if (linked && userData?.patientId && userData?.clinicId) {
           const [p, a] = await Promise.all([
             getPatient(userData.patientId),
             listPatientAssessments(userData.clinicId, userData.patientId),

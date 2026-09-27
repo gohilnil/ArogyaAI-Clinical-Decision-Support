@@ -26,6 +26,13 @@ export default function PatientCheckup({
       setError("You must be signed in to save an entry.");
       return;
     }
+    // A diary entry is filed under the writer's clinic. This page is only
+    // routed to a patient, who always has one — but `clinicId` is optional on
+    // the type now (an admin has none), so it is checked rather than assumed.
+    if (!userData.clinicId) {
+      setError("Your account is not linked to a clinic. Please sign in again.");
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {

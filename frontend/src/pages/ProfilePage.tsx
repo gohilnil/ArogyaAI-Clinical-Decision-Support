@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import type { User as FirebaseUser } from "firebase/auth";
 import {
-  adminUpdateUser,
   attachMyOrphanedLogs,
   getClinic,
   getPatient,
@@ -25,6 +24,7 @@ import {
   saveClinic,
   updatePatient,
 } from "../services/firestore";
+import { patientCodeFromUrl } from "../services/patientCode";
 import type { Patient, UserData } from "../types";
 
 /** Clinic details, held as strings because every input is text. */
@@ -120,15 +120,6 @@ export default function ProfileSettings({
   // Tracks which value was last copied, so the button shows a tick briefly.
   const [copied, setCopied] = useState<string | null>(null);
 
-  // The admin's own account details. Role and email are fixed by the rules, so
-  // only the clinic they are filed under is editable here.
-  const [adminClinicInput, setAdminClinicInput] = useState(userData?.clinicId || "");
-  const [adminSaving, setAdminSaving] = useState(false);
-  const [adminClinicMessage, setAdminClinicMessage] = useState<{
-    ok: boolean;
-    text: string;
-  } | null>(null);
-
   const linkedId = userData?.patientId || "";
   const clinicId = userData?.clinicId || "";
 
@@ -137,6 +128,23 @@ export default function ProfileSettings({
   // clobbering anything the user has typed since.
   useEffect(() => {
     if (userData?.patientId) setPatientCode(userData.patientId);
+  }, [userData?.patientId]);
+
+  /**
+   * Adopt a code handed over in the link (?patient=...).
+   *
+   * A practitioner sends the patient a link instead of reading the code aloud,
+   * so the field arrives already filled. This only PRE-FILLS: it does not link
+   * anything. The patient still presses save, which is what keeps "opening a
+   * link" from silently attaching a health record to whatever account happens
+   * to be signed in on that device.
+   *
+   * It does not overwrite an already-linked account, which would misrepresent
+   * the current link.
+   */
+  useEffect(() => {
+    const fromUrl = patientCodeFromUrl();
+    if (fromUrl && !userData?.patientId) setPatientCode(fromUrl);
   }, [userData?.patientId]);
 
   /**
@@ -254,41 +262,6 @@ export default function ProfileSettings({
       });
     } finally {
       setClinicSaving(false);
-    }
-  };
-
-  /**
-   * Save the administrator's own clinic assignment.
-   *
-   * Routed through the admin update path because an account's `clinicId` is
-   * immutable to its owner — that is what stops a patient or doctor moving
-   * themselves between clinics. An admin can change it on their own profile
-   * because the rules permit an admin to set clinicId on any account, including
-   * their own. Role and email stay fixed.
-   */
-  const handleSaveAdminClinic = async () => {
-    if (!user) return;
-    const clinic = adminClinicInput.trim().toUpperCase();
-    if (clinic.length !== 6) {
-      setAdminClinicMessage({
-        ok: false,
-        text: "A Clinic ID must be exactly 6 characters.",
-      });
-      return;
-    }
-    setAdminSaving(true);
-    setAdminClinicMessage(null);
-    try {
-      await adminUpdateUser(user.uid, { clinicId: clinic });
-      setAdminClinicMessage({ ok: true, text: "Your details have been saved." });
-    } catch (e) {
-      console.error("Could not save admin details:", e);
-      setAdminClinicMessage({
-        ok: false,
-        text: "Could not save your details. Check the Clinic ID and try again.",
-      });
-    } finally {
-      setAdminSaving(false);
     }
   };
 
@@ -440,10 +413,10 @@ export default function ProfileSettings({
               </div>
               <div className="flex items-center gap-2">
                 <div className="bg-white px-6 py-3 rounded-xl border border-blue-200 font-mono font-black text-2xl text-blue-600 tracking-widest">
-                  {userData.clinicId}
+                  {clinicId}
                 </div>
                 <button
-                  onClick={() => copyText("clinic", userData.clinicId)}
+                  onClick={() => copyText("clinic", clinicId)}
                   aria-label="Copy Clinic ID"
                   className="p-3 rounded-xl border border-blue-200 text-blue-600 hover:bg-white transition-colors"
                 >
@@ -457,8 +430,10 @@ export default function ProfileSettings({
                 <Users className="text-emerald-500" size={20} /> Patient Codes
               </h4>
               <p className="text-slate-500 font-medium text-sm">
-                Every patient record has a code (shown in Patient Records). Give a
-                patient their code and they enter it on this page under{" "}
+                Every patient record has a code. Open the patient in{" "}
+                <strong>Patient Records</strong> and use{" "}
+                <strong>Send to patient</strong> to copy a ready link or message,
+                or copy the code itself. The patient enters it on this page under{" "}
                 <strong>Link Your Health Record</strong> to see their own history
                 and diary. It is the record's document id, so it never changes and
                 cannot be guessed from a name.
@@ -705,9 +680,14 @@ export default function ProfileSettings({
           </div>
         )}
 
-        {/* An administrator edits their own details here rather than through a
-            generic account table in the panel: their profile is their profile,
-            and the panel is for managing other people's onboarding. */}
+        {/* An administrator's own account, shown read-only.
+            There is deliberately nothing to EDIT here. An operator works
+            across every clinic and belongs to none, so the clinic field that
+            used to live on this page described a tenancy that does not exist
+            and has been removed. Role and email are fixed by the rules in any
+            case — an administrator cannot be created or promoted from the
+            client. Account management happens in the panel, not on one's own
+            profile. */}
         {userData?.role === "admin" && (
           <div className="space-y-6">
             <div className="bg-purple-50 border border-purple-200 p-6 rounded-2xl">
@@ -715,92 +695,35 @@ export default function ProfileSettings({
                 <Shield size={20} /> Platform Administrator
               </h4>
               <p className="text-purple-800 text-sm font-medium">
-                You manage accounts and onboarding. Clinical records are not
-                visible to this role by design — patients, assessments and
-                diaries stay under clinic control.
+                You manage accounts and onboarding across every clinic. Clinical
+                records are not visible to this role by design — patients,
+                assessments and diaries stay under clinic control.
               </p>
             </div>
 
             <div className="bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem]">
-              <h4 className="font-black text-slate-900 flex items-center gap-2 mb-1">
-                <Building className="text-purple-500" size={20} /> Your Account
+              <h4 className="font-black text-slate-900 flex items-center gap-2 mb-6">
+                <Shield className="text-purple-500" size={20} /> Your Account
               </h4>
-              <p className="text-slate-500 font-medium text-sm mb-6">
-                Role is fixed for this account — an administrator cannot be
-                created or promoted from the client. The clinic below is
-                organisational only.
-              </p>
-
-              <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className={label} htmlFor="admin-email">
-                      Email
-                    </label>
-                    <input
-                      id="admin-email"
-                      type="email"
-                      value={user?.email || ""}
-                      readOnly
-                      className={`${field} bg-slate-50 text-slate-500`}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className={label} htmlFor="admin-role">
-                      Role
-                    </label>
-                    <input
-                      id="admin-role"
-                      type="text"
-                      value="admin"
-                      readOnly
-                      className={`${field} bg-slate-50 text-slate-500 capitalize`}
-                    />
-                  </div>
-                  <div className="space-y-2 md:col-span-2">
-                    <label className={label} htmlFor="admin-clinic">
-                      Clinic ID
-                    </label>
-                    <input
-                      id="admin-clinic"
-                      type="text"
-                      maxLength={6}
-                      value={adminClinicInput}
-                      onChange={(e) => {
-                        setAdminClinicInput(e.target.value.toUpperCase());
-                        setAdminClinicMessage(null);
-                      }}
-                      className={`${field} font-mono tracking-widest`}
-                    />
-                    <p className="text-xs font-semibold text-slate-400">
-                      The clinic this administrator account is filed under. It
-                      does not grant access to that clinic's clinical data.
-                    </p>
-                  </div>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                <div>
+                  <dt className={label}>Email</dt>
+                  <dd className="font-bold text-slate-700 break-words">
+                    {user?.email || "—"}
+                  </dd>
                 </div>
-
-                <button
-                  onClick={handleSaveAdminClinic}
-                  disabled={adminSaving}
-                  className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-purple-700 disabled:opacity-50"
-                >
-                  <Save size={20} />
-                  {adminSaving ? "Saving..." : "Save My Details"}
-                </button>
-
-                {adminClinicMessage && (
-                  <div
-                    className={`p-4 rounded-2xl font-bold text-sm flex items-start gap-2 ${adminClinicMessage.ok ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}
-                  >
-                    {adminClinicMessage.ok ? (
-                      <CheckCircle2 size={18} className="flex-shrink-0" />
-                    ) : (
-                      <AlertCircle size={18} className="flex-shrink-0" />
-                    )}
-                    {adminClinicMessage.text}
-                  </div>
-                )}
-              </div>
+                <div>
+                  <dt className={label}>Role</dt>
+                  <dd className="font-bold text-slate-700">Platform administrator</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className={label}>Scope</dt>
+                  <dd className="font-bold text-slate-700">
+                    All clinics. This account is not filed under a clinic —
+                    an operator belongs to none.
+                  </dd>
+                </div>
+              </dl>
             </div>
           </div>
         )}

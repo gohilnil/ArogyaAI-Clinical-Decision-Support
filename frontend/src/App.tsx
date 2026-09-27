@@ -25,10 +25,16 @@ export default function App() {
   // explicit state instead of a portal that would show empty data. An empty
   // string clinicId is treated as missing: a live legacy account has one, and
   // every clinic-scoped query for it is denied by the rules.
+  //
+  // AN ADMIN IS EXEMPT FROM THE CLINIC REQUIREMENT. An operator works across
+  // every clinic and belongs to none, so demanding a clinic of them asserted a
+  // tenancy that does not exist and stranded an admin account without one on
+  // the "unprovisioned" screen. Every other role still needs its clinic — that
+  // field is the tenancy boundary their clinical reads are scoped by.
   const hasUsableProfile =
     Boolean(userData) &&
-    Boolean(userData?.clinicId) &&
-    Boolean(userData?.role);
+    Boolean(userData?.role) &&
+    (userData?.role === "admin" || Boolean(userData?.clinicId));
 
   if (!hasUsableProfile) {
     return <UnprovisionedPage user={user} />;

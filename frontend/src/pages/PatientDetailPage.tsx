@@ -9,12 +9,17 @@ import {
   Activity,
   User,
   MessageSquare,
+  Copy,
+  Check,
+  Link2,
+  ChevronDown,
 } from "lucide-react";
 import {
   getPatient,
   listPatientAssessments,
   listPatientLogs,
 } from "../services/firestore";
+import { patientLink, patientMessage } from "../services/patientCode";
 import type { Assessment, Patient, PatientLog } from "../types";
 
 /** One patient's profile and full assessment history (newest first). */
@@ -27,6 +32,12 @@ export default function PatientDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+
+  // Which value was last copied, so the button shows a tick briefly.
+  const [copied, setCopied] = useState<string | null>(null);
+  // The share panel is collapsed until asked for: a practitioner opening a
+  // record to review it should not be shown a QR code by default.
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     const load = async () => {
@@ -73,6 +84,23 @@ export default function PatientDetailPage() {
   const fmt = (t?: { toDate: () => Date }) =>
     t ? t.toDate().toLocaleString() : "—";
 
+  /**
+   * Copy with visible confirmation rather than a silent no-op. Falls back to a
+   * visible failure where the clipboard API is unavailable (some browsers deny
+   * it outside secure contexts), so the button never claims to have copied when
+   * it has not.
+   */
+  const copyText = async (key: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      setCopied(null);
+      return;
+    }
+    setCopied(key);
+    setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
+  };
+
   if (loading) {
     return (
       <div className="max-w-5xl mx-auto p-10 text-center text-slate-500 font-bold">
@@ -111,12 +139,12 @@ export default function PatientDetailPage() {
       </button>
 
       {/* Identity */}
-      <div className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-sm">
+      <div className="bg-white p-8 rounded-[2rem] border border-slate-200/60 shadow-sm space-y-6">
         <div className="flex items-center gap-5">
           <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
             <User size={30} />
           </div>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-3xl font-black text-slate-950 tracking-tighter">
               {patient.name}
             </h1>
@@ -125,10 +153,101 @@ export default function PatientDetailPage() {
               {patient.gender || "Gender not recorded"} · Prakriti:{" "}
               {patient.dosha || "Not recorded"}
             </p>
-            <p className="text-xs font-bold text-slate-400 mt-1 font-mono">
-              Patient code: {patient.id}
-            </p>
           </div>
+        </div>
+
+        {/* Patient code delivery.
+            The code IS this record's document id, and its unguessability is the
+            security model — so it is copied, never shortened. What this panel
+            removes is the retyping: the practitioner copies a ready link or a
+            ready message instead of reading digits aloud. */}
+        <div className="border-t border-slate-100 pt-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Patient code
+              </p>
+              <p className="font-mono font-black text-slate-800 text-lg tracking-wide break-all">
+                {patient.id}
+              </p>
+            </div>
+            <button
+              onClick={() => copyText("code", patient.id)}
+              className="ml-auto bg-slate-100 text-slate-700 px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-slate-200"
+            >
+              {copied === "code" ? <Check size={15} /> : <Copy size={15} />}
+              {copied === "code" ? "Copied" : "Copy code"}
+            </button>
+            <button
+              onClick={() => setShareOpen((v) => !v)}
+              className="bg-slate-950 text-white px-4 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-slate-800"
+            >
+              <Link2 size={15} /> Send to patient
+              <ChevronDown
+                size={15}
+                className={`transition-transform ${shareOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+          </div>
+
+          {shareOpen && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              className="overflow-hidden"
+            >
+              <div className="pt-5 space-y-4">
+                <p className="text-slate-500 font-medium text-sm">
+                  Give the patient their code so they can see their own history
+                  and diary. Send the message, or the link, and they press one
+                  button instead of retyping it.
+                </p>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
+                    Message
+                  </p>
+                  <pre className="whitespace-pre-wrap font-sans font-medium text-sm text-slate-700">
+                    {patientMessage(patient.id, patient.name, patient.clinicId)}
+                  </pre>
+                  <div className="flex gap-2 mt-3">
+                    <button
+                      onClick={() =>
+                        copyText(
+                          "message",
+                          patientMessage(patient.id, patient.name, patient.clinicId),
+                        )
+                      }
+                      className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-emerald-700"
+                    >
+                      {copied === "message" ? <Check size={15} /> : <Copy size={15} />}
+                      {copied === "message" ? "Copied" : "Copy message"}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <code className="text-xs font-mono font-bold text-slate-600 bg-slate-100 px-3 py-2 rounded-lg break-all flex-1 min-w-0">
+                    {patientLink(patient.id)}
+                  </code>
+                  <button
+                    onClick={() => copyText("link", patientLink(patient.id))}
+                    className="bg-slate-100 text-slate-700 px-4 py-2 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-slate-200"
+                  >
+                    {copied === "link" ? <Check size={15} /> : <Copy size={15} />}
+                    {copied === "link" ? "Copied" : "Copy link"}
+                  </button>
+                </div>
+
+                <p className="text-xs font-semibold text-slate-400">
+                  The link opens the portal with the code already filled in. It
+                  does not link the record by itself — the patient signs in and
+                  confirms, so opening a link cannot attach a record to whichever
+                  account is on that device.
+                </p>
+              </div>
+            </motion.div>
+          )}
         </div>
       </div>
 

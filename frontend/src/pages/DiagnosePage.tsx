@@ -288,10 +288,19 @@ export default function DiagnosticTool({ userData }: { userData: UserData | null
       return;
     }
 
+    // A clinical write is scoped by the practitioner's clinic, so there must be
+    // one. This page is only routed to an approved doctor, who always has a
+    // clinic — but the field is optional on the type now (an admin has none),
+    // so the dependency is checked rather than assumed.
+    const clinicId = userData.clinicId;
+    if (!clinicId) {
+      setError("Your account is not linked to a clinic. Please sign in again.");
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
     try {
-      const clinicId = userData.clinicId;
       const uid = currentUser.uid;
 
       // Resolve the person first, then file the clinical event under them.
