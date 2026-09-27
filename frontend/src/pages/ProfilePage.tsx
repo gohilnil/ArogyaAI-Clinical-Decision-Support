@@ -10,15 +10,53 @@ import {
   Copy,
   Check,
   Users,
+  MapPin,
+  Phone,
+  Mail,
+  FileText,
 } from "lucide-react";
 import type { User as FirebaseUser } from "firebase/auth";
 import {
+  adminUpdateUser,
   attachMyOrphanedLogs,
+  getClinic,
   getPatient,
   linkPatientAccount,
+  saveClinic,
   updatePatient,
 } from "../services/firestore";
 import type { Patient, UserData } from "../types";
+
+/** Clinic details, held as strings because every input is text. */
+interface ClinicForm {
+  name: string;
+  type: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  email: string;
+  registrationNo: string;
+  notes: string;
+}
+
+const EMPTY_CLINIC: ClinicForm = {
+  name: "",
+  type: "Ayurvedic Clinic",
+  addressLine1: "",
+  addressLine2: "",
+  city: "",
+  state: "",
+  postalCode: "",
+  country: "India",
+  phone: "",
+  email: "",
+  registrationNo: "",
+  notes: "",
+};
 
 /** Editable identity fields, held as strings because every input is text. */
 interface RecordForm {
@@ -71,10 +109,28 @@ export default function ProfileSettings({
     null,
   );
 
+  // The clinic's organisational details, maintained by its practitioners.
+  const [clinicLoading, setClinicLoading] = useState(false);
+  const [clinicForm, setClinicForm] = useState<ClinicForm>(EMPTY_CLINIC);
+  const [clinicSaving, setClinicSaving] = useState(false);
+  const [clinicMessage, setClinicMessage] = useState<{ ok: boolean; text: string } | null>(
+    null,
+  );
+
   // Tracks which value was last copied, so the button shows a tick briefly.
   const [copied, setCopied] = useState<string | null>(null);
 
+  // The admin's own account details. Role and email are fixed by the rules, so
+  // only the clinic they are filed under is editable here.
+  const [adminClinicInput, setAdminClinicInput] = useState(userData?.clinicId || "");
+  const [adminSaving, setAdminSaving] = useState(false);
+  const [adminClinicMessage, setAdminClinicMessage] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
+
   const linkedId = userData?.patientId || "";
+  const clinicId = userData?.clinicId || "";
 
   // userData arrives asynchronously from the auth listener, so the input cannot
   // be seeded in useState alone. Adopt the linked code once it is known, without
@@ -123,6 +179,118 @@ export default function ProfileSettings({
       cancelled = true;
     };
   }, [linkedId]);
+
+  /**
+   * Load the clinic's organisational details for a practitioner.
+   *
+   * The document id IS the clinic ID, so there is no lookup indirection. A
+   * missing document is a normal first-run state rather than an error: the
+   * clinic exists as an id on every account, but may have no details recorded.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (userData?.role !== "doctor" || !clinicId) {
+        setClinicForm(EMPTY_CLINIC);
+        return;
+      }
+      setClinicLoading(true);
+      try {
+        const c = await getClinic(clinicId);
+        if (cancelled) return;
+        setClinicForm(
+          c
+            ? {
+                name: c.name || "",
+                type: c.type || "Ayurvedic Clinic",
+                addressLine1: c.addressLine1 || "",
+                addressLine2: c.addressLine2 || "",
+                city: c.city || "",
+                state: c.state || "",
+                postalCode: c.postalCode || "",
+                country: c.country || "India",
+                phone: c.phone || "",
+                email: c.email || "",
+                registrationNo: c.registrationNo || "",
+                notes: c.notes || "",
+              }
+            : EMPTY_CLINIC,
+        );
+      } catch (e) {
+        console.error("Could not load clinic details:", e);
+      } finally {
+        if (!cancelled) setClinicLoading(false);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [userData?.role, clinicId]);
+
+  /**
+   * Persist the clinic's details.
+   *
+   * Any practitioner of the clinic may do this — the details are shared
+   * organisational facts, not a per-person record — and the rules bind the id
+   * to the caller's own clinic.
+   */
+  const handleSaveClinic = async () => {
+    if (!user) return;
+    if (!clinicForm.name.trim()) {
+      setClinicMessage({ ok: false, text: "A clinic name is required." });
+      return;
+    }
+    setClinicSaving(true);
+    setClinicMessage(null);
+    try {
+      await saveClinic(clinicId, user.uid, clinicForm);
+      setClinicMessage({ ok: true, text: "Clinic details saved." });
+    } catch (e) {
+      console.error("Could not save clinic details:", e);
+      setClinicMessage({
+        ok: false,
+        text: "Could not save the clinic details. Please try again.",
+      });
+    } finally {
+      setClinicSaving(false);
+    }
+  };
+
+  /**
+   * Save the administrator's own clinic assignment.
+   *
+   * Routed through the admin update path because an account's `clinicId` is
+   * immutable to its owner — that is what stops a patient or doctor moving
+   * themselves between clinics. An admin can change it on their own profile
+   * because the rules permit an admin to set clinicId on any account, including
+   * their own. Role and email stay fixed.
+   */
+  const handleSaveAdminClinic = async () => {
+    if (!user) return;
+    const clinic = adminClinicInput.trim().toUpperCase();
+    if (clinic.length !== 6) {
+      setAdminClinicMessage({
+        ok: false,
+        text: "A Clinic ID must be exactly 6 characters.",
+      });
+      return;
+    }
+    setAdminSaving(true);
+    setAdminClinicMessage(null);
+    try {
+      await adminUpdateUser(user.uid, { clinicId: clinic });
+      setAdminClinicMessage({ ok: true, text: "Your details have been saved." });
+    } catch (e) {
+      console.error("Could not save admin details:", e);
+      setAdminClinicMessage({
+        ok: false,
+        text: "Could not save your details. Check the Clinic ID and try again.",
+      });
+    } finally {
+      setAdminSaving(false);
+    }
+  };
 
   /**
    * Save the patient's own corrections.
@@ -295,6 +463,344 @@ export default function ProfileSettings({
                 and diary. It is the record's document id, so it never changes and
                 cannot be guessed from a name.
               </p>
+            </div>
+
+            {/* Clinic details. The clinic ID exists on every account, but until
+                this existed there was nowhere to record what the clinic
+                actually IS — its name, address or contact. Maintained by any
+                practitioner of the clinic, since these are shared
+                organisational facts rather than a per-person record. */}
+            <div className="bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem]">
+              <div className="flex items-center gap-3 mb-1">
+                <Building className="text-emerald-500" size={20} />
+                <h4 className="font-black text-slate-900">Clinic Details</h4>
+              </div>
+              <p className="text-slate-500 font-medium text-sm mb-6">
+                Shown to your practitioners and patients, and visible to the
+                platform administrator for oversight. Only you and your
+                colleagues can edit it.
+              </p>
+
+              {clinicLoading ? (
+                <div className="space-y-3" aria-busy="true">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="h-12 rounded-2xl bg-slate-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2 md:col-span-2">
+                      <label className={label} htmlFor="clinic-name">
+                        Clinic Name
+                      </label>
+                      <input
+                        id="clinic-name"
+                        type="text"
+                        value={clinicForm.name}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, name: e.target.value })
+                        }
+                        placeholder="e.g. Sunrise Ayurveda Clinic"
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-type">
+                        Type
+                      </label>
+                      <input
+                        id="clinic-type"
+                        type="text"
+                        value={clinicForm.type}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, type: e.target.value })
+                        }
+                        placeholder="Ayurvedic Clinic"
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-reg">
+                        Registration No.
+                      </label>
+                      <input
+                        id="clinic-reg"
+                        type="text"
+                        value={clinicForm.registrationNo}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, registrationNo: e.target.value })
+                        }
+                        placeholder="Optional"
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className={label} htmlFor="clinic-addr1">
+                        Address
+                      </label>
+                      <input
+                        id="clinic-addr1"
+                        type="text"
+                        value={clinicForm.addressLine1}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, addressLine1: e.target.value })
+                        }
+                        placeholder="Street address"
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <input
+                        type="text"
+                        aria-label="Address line 2"
+                        value={clinicForm.addressLine2}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, addressLine2: e.target.value })
+                        }
+                        placeholder="Area, landmark (optional)"
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-city">
+                        City
+                      </label>
+                      <input
+                        id="clinic-city"
+                        type="text"
+                        value={clinicForm.city}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, city: e.target.value })
+                        }
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-state">
+                        State
+                      </label>
+                      <input
+                        id="clinic-state"
+                        type="text"
+                        value={clinicForm.state}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, state: e.target.value })
+                        }
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-postal">
+                        Postal Code
+                      </label>
+                      <input
+                        id="clinic-postal"
+                        type="text"
+                        value={clinicForm.postalCode}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, postalCode: e.target.value })
+                        }
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-country">
+                        Country
+                      </label>
+                      <input
+                        id="clinic-country"
+                        type="text"
+                        value={clinicForm.country}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, country: e.target.value })
+                        }
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-phone">
+                        Phone
+                      </label>
+                      <input
+                        id="clinic-phone"
+                        type="tel"
+                        value={clinicForm.phone}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, phone: e.target.value })
+                        }
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className={label} htmlFor="clinic-email">
+                        Email
+                      </label>
+                      <input
+                        id="clinic-email"
+                        type="email"
+                        value={clinicForm.email}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, email: e.target.value })
+                        }
+                        className={field}
+                      />
+                    </div>
+                    <div className="space-y-2 md:col-span-2">
+                      <label className={label} htmlFor="clinic-notes">
+                        Notes
+                      </label>
+                      <textarea
+                        id="clinic-notes"
+                        value={clinicForm.notes}
+                        onChange={(e) =>
+                          setClinicForm({ ...clinicForm, notes: e.target.value })
+                        }
+                        rows={3}
+                        placeholder="Opening hours, departments, anything a patient should know."
+                        className={`${field} resize-none`}
+                      />
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={handleSaveClinic}
+                    disabled={clinicSaving}
+                    className="w-full bg-emerald-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    <Save size={20} />
+                    {clinicSaving ? "Saving..." : "Save Clinic Details"}
+                  </button>
+
+                  {clinicMessage && (
+                    <div
+                      className={`p-4 rounded-2xl font-bold text-sm flex items-start gap-2 ${clinicMessage.ok ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}
+                    >
+                      {clinicMessage.ok ? (
+                        <CheckCircle2 size={18} className="flex-shrink-0" />
+                      ) : (
+                        <AlertCircle size={18} className="flex-shrink-0" />
+                      )}
+                      {clinicMessage.text}
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-4 pt-2 text-xs font-bold text-slate-400">
+                    <span className="flex items-center gap-1.5">
+                      <MapPin size={13} /> {clinicForm.city || "No city yet"}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Phone size={13} /> {clinicForm.phone || "No phone yet"}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <Mail size={13} /> {clinicForm.email || "No email yet"}
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <FileText size={13} /> Clinic ID {clinicId}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* An administrator edits their own details here rather than through a
+            generic account table in the panel: their profile is their profile,
+            and the panel is for managing other people's onboarding. */}
+        {userData?.role === "admin" && (
+          <div className="space-y-6">
+            <div className="bg-purple-50 border border-purple-200 p-6 rounded-2xl">
+              <h4 className="font-black text-purple-900 flex items-center gap-2 mb-1">
+                <Shield size={20} /> Platform Administrator
+              </h4>
+              <p className="text-purple-800 text-sm font-medium">
+                You manage accounts and onboarding. Clinical records are not
+                visible to this role by design — patients, assessments and
+                diaries stay under clinic control.
+              </p>
+            </div>
+
+            <div className="bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem]">
+              <h4 className="font-black text-slate-900 flex items-center gap-2 mb-1">
+                <Building className="text-purple-500" size={20} /> Your Account
+              </h4>
+              <p className="text-slate-500 font-medium text-sm mb-6">
+                Role is fixed for this account — an administrator cannot be
+                created or promoted from the client. The clinic below is
+                organisational only.
+              </p>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className={label} htmlFor="admin-email">
+                      Email
+                    </label>
+                    <input
+                      id="admin-email"
+                      type="email"
+                      value={user?.email || ""}
+                      readOnly
+                      className={`${field} bg-slate-50 text-slate-500`}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className={label} htmlFor="admin-role">
+                      Role
+                    </label>
+                    <input
+                      id="admin-role"
+                      type="text"
+                      value="admin"
+                      readOnly
+                      className={`${field} bg-slate-50 text-slate-500 capitalize`}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <label className={label} htmlFor="admin-clinic">
+                      Clinic ID
+                    </label>
+                    <input
+                      id="admin-clinic"
+                      type="text"
+                      maxLength={6}
+                      value={adminClinicInput}
+                      onChange={(e) => {
+                        setAdminClinicInput(e.target.value.toUpperCase());
+                        setAdminClinicMessage(null);
+                      }}
+                      className={`${field} font-mono tracking-widest`}
+                    />
+                    <p className="text-xs font-semibold text-slate-400">
+                      The clinic this administrator account is filed under. It
+                      does not grant access to that clinic's clinical data.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveAdminClinic}
+                  disabled={adminSaving}
+                  className="w-full bg-purple-600 text-white py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-purple-700 disabled:opacity-50"
+                >
+                  <Save size={20} />
+                  {adminSaving ? "Saving..." : "Save My Details"}
+                </button>
+
+                {adminClinicMessage && (
+                  <div
+                    className={`p-4 rounded-2xl font-bold text-sm flex items-start gap-2 ${adminClinicMessage.ok ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-700"}`}
+                  >
+                    {adminClinicMessage.ok ? (
+                      <CheckCircle2 size={18} className="flex-shrink-0" />
+                    ) : (
+                      <AlertCircle size={18} className="flex-shrink-0" />
+                    )}
+                    {adminClinicMessage.text}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}

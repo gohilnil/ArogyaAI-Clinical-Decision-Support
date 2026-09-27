@@ -714,6 +714,100 @@ test("a doctor cannot attach a patient's entry", async () => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// clinics — the entity a practitioner maintains
+// ---------------------------------------------------------------------------
+// A patient is NEVER gated on approval: holding a clinic ID is sufficient. Only
+// practitioners wait for an admin decision. This is asserted explicitly because
+// it is a product requirement, not an accident of the rules.
+test("a patient account is usable immediately, with no approval step", async () => {
+  const db = testEnv.authenticatedContext("instant-patient").firestore();
+  await assertSucceeds(
+    setDoc(doc(db, "users", "instant-patient"), {
+      email: "ip@test.test", role: "patient", clinicId: "CLIN01",
+    }),
+  );
+});
+
+/** Create CLIN01's details record as one of its own practitioners. */
+async function seedClinic01() {
+  await setDoc(doc(as(DOCTOR_A), "clinics", "CLIN01"), {
+    name: "Sunrise Ayurveda", city: "Ahmedabad", createdBy: "doctor-a",
+  });
+}
+
+test("a doctor of the clinic can create its details record", async () => {
+  await assertSucceeds(
+    setDoc(doc(as(DOCTOR_A), "clinics", "CLIN01"), {
+      name: "Sunrise Ayurveda", city: "Ahmedabad", createdBy: "doctor-a",
+    }),
+  );
+});
+
+test("a doctor CANNOT create a clinic record for another clinic", async () => {
+  await assertFails(
+    setDoc(doc(as(DOCTOR_A), "clinics", "CLIN02"), {
+      name: "Someone Else's Clinic", createdBy: "doctor-a",
+    }),
+  );
+});
+
+test("a clinic record is readable by its own clinic and admin, not others", async () => {
+  await seedClinic01();
+  await assertSucceeds(getDoc(doc(as(DOCTOR_A), "clinics", "CLIN01")));
+  await assertSucceeds(getDoc(doc(as(PATIENT_1), "clinics", "CLIN01")));
+  await assertSucceeds(getDoc(doc(as(ADMIN), "clinics", "CLIN01")));
+  // A practitioner of another clinic cannot read it.
+  await assertFails(getDoc(doc(as(DOCTOR_B), "clinics", "CLIN01")));
+});
+
+test("a doctor can update their clinic's details", async () => {
+  await seedClinic01();
+  await assertSucceeds(
+    updateDoc(doc(as(DOCTOR_A), "clinics", "CLIN01"), {
+      phone: "+91 99999 00000", city: "Surat",
+    }),
+  );
+});
+
+test("another clinic's doctor cannot update these details", async () => {
+  await seedClinic01();
+  await assertFails(
+    updateDoc(doc(as(DOCTOR_B), "clinics", "CLIN01"), { city: "Tampered" }),
+  );
+});
+
+test("a doctor cannot rewrite who created the clinic record", async () => {
+  await seedClinic01();
+  await assertFails(
+    updateDoc(doc(as(DOCTOR_A), "clinics", "CLIN01"), { createdBy: "doctor-b" }),
+  );
+});
+
+test("a clinic update cannot smuggle in an arbitrary field", async () => {
+  await seedClinic01();
+  await assertFails(
+    updateDoc(doc(as(DOCTOR_A), "clinics", "CLIN01"), { verified: true }),
+  );
+});
+
+test("a patient cannot create or edit their clinic's record", async () => {
+  await assertFails(
+    setDoc(doc(as(PATIENT_1), "clinics", "CLIN01"), {
+      name: "Patient Made This", createdBy: "patient-1",
+    }),
+  );
+  await seedClinic01();
+  await assertFails(
+    updateDoc(doc(as(PATIENT_1), "clinics", "CLIN01"), { phone: "000" }),
+  );
+});
+
+test("a clinic record cannot be deleted", async () => {
+  await seedClinic01();
+  await assertFails(deleteDoc(doc(as(DOCTOR_A), "clinics", "CLIN01")));
+});
+
 test("a collection with no rule is denied by default", async () => {
   await assertFails(getDoc(doc(as(DOCTOR_A), "audit_logs", "anything")));
   await assertFails(

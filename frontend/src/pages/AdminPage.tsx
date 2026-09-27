@@ -18,19 +18,14 @@ import {
 import {
   adminUpdateUser,
   listAllUsers,
+  listClinics,
   setDoctorStatus,
   type UserDataWithId,
 } from "../services/firestore";
-import type { UserData } from "../types";
+import type { Clinic, UserData } from "../types";
 
 const ROLES = ["patient", "doctor", "admin"] as const;
 const STATUSES = ["approved", "pending", "rejected"] as const;
-
-const ROLE_BADGE: Record<string, string> = {
-  admin: "bg-purple-100 text-purple-700 border-purple-200",
-  doctor: "bg-blue-100 text-blue-700 border-blue-200",
-  patient: "bg-emerald-100 text-emerald-700 border-emerald-200",
-};
 
 const STATUS_BADGE: Record<string, string> = {
   approved: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -108,6 +103,10 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
   );
   const [deciding, setDeciding] = useState<string | null>(null);
 
+  // Clinic details records, for oversight. Read-only here: a clinic's details
+  // are its practitioners' to maintain, and the admin's job is to see them.
+  const [clinics, setClinics] = useState<Clinic[]>([]);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -115,6 +114,11 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
       setError(null);
       try {
         const us = await listAllUsers();
+        // Clinics are a separate read; a failure here must not hide the
+        // accounts, which are the panel's primary job.
+        listClinics()
+          .then((cs) => !cancelled && setClinics(cs))
+          .catch((e) => console.error("Could not load clinic details:", e));
         if (cancelled) return;
         setUsers(us);
       } catch (e) {
@@ -136,14 +140,18 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
     [users],
   );
 
+  // Admins are excluded from the account totals: they are not managed through
+  // this panel, so counting them here would overstate what the lists below show.
+  const managed = useMemo(() => users.filter((u) => u.role !== "admin"), [users]);
+
   const stats = useMemo(
     () => ({
-      total: users.length,
-      doctors: users.filter((u) => u.role === "doctor").length,
-      patients: users.filter((u) => u.role === "patient").length,
+      total: managed.length,
+      doctors: managed.filter((u) => u.role === "doctor").length,
+      patients: managed.filter((u) => u.role === "patient").length,
       pending: pending.length,
     }),
-    [users, pending],
+    [managed, pending],
   );
 
   const byRole = useMemo(() => {
@@ -175,15 +183,55 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
       }));
   }, [users]);
 
-  const visibleUsers = useMemo(() => {
+  /**
+   * Practitioners and patients are listed separately because the two lists
+   * answer different questions: practitioners are an approval queue and an
+   * access audit, patients are a membership list. One mixed table made the
+   * admin scan every row to find the handful that need a decision.
+   *
+   * Admins are excluded from both. An administrator's own details are edited on
+   * their Profile page, alongside everyone else's profile, and listing them
+   * here would invite self-editing through a table meant for other people.
+   */
+  const matchSearch = (u: UserDataWithId, term: string) =>
+    [u.email, u.clinicId, statusOf(u)]
+      .filter(Boolean)
+      .some((v) => String(v).toLowerCase().includes(term));
+
+  const doctors = useMemo(() => {
     const term = search.trim().toLowerCase();
-    if (!term) return users;
-    return users.filter((u) =>
-      [u.email, u.role, u.clinicId, statusOf(u)]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(term)),
-    );
+    const list = users.filter((u) => u.role === "doctor");
+    // Pending first: the rows needing a decision belong at the top.
+    list.sort((a, b) => {
+      const pa = statusOf(a) === "pending" ? 0 : 1;
+      const pb = statusOf(b) === "pending" ? 0 : 1;
+      if (pa !== pb) return pa - pb;
+      return (a.email || "").localeCompare(b.email || "");
+    });
+    return term ? list.filter((u) => matchSearch(u, term)) : list;
   }, [users, search]);
+
+  const patients = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    const list = users.filter((u) => u.role === "patient");
+    return term ? list.filter((u) => matchSearch(u, term)) : list;
+  }, [users, search]);
+
+  const clinicById = useMemo(() => {
+    const map = new Map<string, Clinic>();
+    for (const c of clinics) map.set(c.id, c);
+    return map;
+  }, [clinics]);
+
+  /** Every clinic id that appears on an account, whether or not it has details. */
+  const clinicIds = useMemo(() => {
+    const tally = new Map<string, number>();
+    for (const u of users) {
+      if (!u.clinicId) continue;
+      tally.set(u.clinicId, (tally.get(u.clinicId) || 0) + 1);
+    }
+    return [...tally.entries()].sort((a, b) => b[1] - a[1]);
+  }, [users]);
 
   const startEdit = (u: UserDataWithId) => {
     setEditingId(u.id);
@@ -250,6 +298,136 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
 
   const field =
     "p-3 rounded-xl border-2 border-slate-200 focus:border-emerald-500 outline-none font-bold text-sm";
+
+  /**
+   * One account row, shared by the practitioner and patient tables so editing
+   * behaves identically in both. `withStatus` adds the approval control, which
+   * applies only to practitioners; the patient table instead shows whether the
+   * account is linked to a record, which is the equivalent fact an admin needs.
+   */
+  const renderRow = (u: UserDataWithId, withStatus: boolean) => {
+    const editing = editingId === u.id;
+    const status = statusOf(u);
+    return (
+      <tr key={u.id} className="hover:bg-slate-50/60">
+        <td className="p-5">
+          <p className="font-black text-slate-900">{u.email || u.id}</p>
+          <p className="text-xs font-bold text-slate-400 font-mono">{u.id}</p>
+          {editing && (
+            <div className="mt-2 flex items-center gap-2">
+              <label
+                className="text-[10px] font-black uppercase tracking-widest text-slate-400"
+                htmlFor={`role-${u.id}`}
+              >
+                Role
+              </label>
+              <select
+                id={`role-${u.id}`}
+                value={draft.role}
+                onChange={(e) => setDraft({ ...draft, role: e.target.value })}
+                className="p-1.5 rounded-lg border-2 border-slate-200 focus:border-purple-400 outline-none font-bold text-xs"
+              >
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+              <span className="text-[10px] font-semibold text-slate-400">
+                moves the account between the lists above
+              </span>
+            </div>
+          )}
+          {rowMessage?.id === u.id && (
+            <p
+              className={`mt-2 text-xs font-bold flex items-center gap-1 ${rowMessage.ok ? "text-emerald-700" : "text-red-700"}`}
+            >
+              {rowMessage.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
+              {rowMessage.text}
+            </p>
+          )}
+        </td>
+        <td className="p-5">
+          {editing ? (
+            <input
+              type="text"
+              value={draft.clinicId}
+              maxLength={6}
+              onChange={(e) =>
+                setDraft({ ...draft, clinicId: e.target.value.toUpperCase() })
+              }
+              aria-label={`Clinic ID for ${u.email}`}
+              className={`${field} w-28 font-mono tracking-widest`}
+            />
+          ) : (
+            <span className="font-mono font-bold text-slate-700">
+              {u.clinicId || "—"}
+            </span>
+          )}
+        </td>
+        <td className="p-5">
+          {withStatus ? (
+            editing ? (
+              <select
+                value={draft.status}
+                onChange={(e) => setDraft({ ...draft, status: e.target.value })}
+                aria-label={`Status for ${u.email}`}
+                className={field}
+              >
+                {STATUSES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-black border uppercase tracking-wide ${STATUS_BADGE[status] || STATUS_BADGE.approved}`}
+              >
+                {status}
+              </span>
+            )
+          ) : u.patientId ? (
+            <span className="text-xs font-black uppercase tracking-wide text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-full">
+              Linked
+            </span>
+          ) : (
+            <span className="text-xs font-black uppercase tracking-wide text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+              Not linked
+            </span>
+          )}
+        </td>
+        <td className="p-5 text-right">
+          {editing ? (
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => saveEdit(u)}
+                className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-black text-sm flex items-center gap-1.5 hover:bg-emerald-700"
+              >
+                <Save size={15} /> Save
+              </button>
+              <button
+                onClick={() => {
+                  setEditingId(null);
+                  setRowMessage(null);
+                }}
+                className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl font-black text-sm hover:bg-slate-200"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => startEdit(u)}
+              className="text-purple-700 font-black text-sm hover:underline"
+            >
+              Edit
+            </button>
+          )}
+        </td>
+      </tr>
+    );
+  };
 
   if (userData?.role !== "admin") {
     return (
@@ -414,54 +592,74 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
         </div>
       </div>
 
-      {/* Accounts ---------------------------------------------------------- */}
+      {/* Search spans both lists: an admin usually arrives knowing an email or
+          a clinic and does not care which table the row lives in. */}
+      <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm p-6 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="flex items-center gap-3 flex-1">
+          <Search className="text-purple-500" size={22} />
+          <h2 className="text-xl font-black text-slate-950">Find an account</h2>
+        </div>
+        <div className="relative">
+          <Search size={17} className="absolute left-3.5 top-3 text-slate-400" aria-hidden="true" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            aria-label="Search accounts"
+            placeholder="Search email, clinic or status..."
+            className="pl-10 pr-9 py-2.5 rounded-xl border-2 border-slate-200 focus:border-purple-400 outline-none font-bold text-sm w-full sm:w-80"
+          />
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              aria-label="Clear search"
+              className="absolute right-3 top-3 text-slate-400 hover:text-slate-700"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Practitioners ----------------------------------------------------- */}
       <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="flex items-center gap-3 flex-1">
-            <Users className="text-purple-500" size={22} />
-            <h2 className="text-xl font-black text-slate-950">Accounts</h2>
-          </div>
-          <div className="relative">
-            <Search size={17} className="absolute left-3.5 top-3 text-slate-400" aria-hidden="true" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search accounts"
-              placeholder="Search email, role, clinic or status…"
-              className="pl-10 pr-9 py-2.5 rounded-xl border-2 border-slate-200 focus:border-purple-400 outline-none font-bold text-sm w-full sm:w-80"
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                aria-label="Clear search"
-                className="absolute right-3 top-3 text-slate-400 hover:text-slate-700"
-              >
-                <X size={16} />
-              </button>
-            )}
-          </div>
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3 flex-wrap">
+          <UserCheck className="text-blue-500" size={22} />
+          <h2 className="text-xl font-black text-slate-950">Practitioners</h2>
+          <span className="text-xs font-black bg-blue-100 text-blue-700 px-2.5 py-1 rounded-full">
+            {doctors.length}
+          </span>
+          {stats.pending > 0 && (
+            <span className="text-xs font-black bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full">
+              {stats.pending} awaiting approval
+            </span>
+          )}
         </div>
 
         {loading ? (
           <div className="p-6 space-y-3" aria-busy="true">
-            {[0, 1, 2].map((i) => (
+            {[0, 1].map((i) => (
               <div key={i} className="h-14 rounded-2xl bg-slate-100 animate-pulse" />
             ))}
           </div>
-        ) : visibleUsers.length === 0 ? (
+        ) : doctors.length === 0 ? (
           <div className="p-12 text-center">
-            <Users size={40} className="mx-auto mb-3 text-slate-300" />
+            <UserCheck size={40} className="mx-auto mb-3 text-slate-300" />
             <p className="text-slate-600 font-black">
-              {users.length === 0 ? "No accounts yet." : "No accounts match your search."}
+              {search ? "No practitioners match your search." : "No practitioners yet."}
             </p>
+            {!search && (
+              <p className="text-slate-400 font-medium text-sm mt-2">
+                A practitioner appears here after registering with a Clinic ID.
+              </p>
+            )}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left min-w-[900px]">
+            <table className="w-full text-left min-w-[760px]">
               <thead className="bg-slate-50 border-b border-slate-200/60">
                 <tr>
-                  {["Account", "Role", "Clinic", "Status", ""].map((h) => (
+                  {["Practitioner", "Clinic", "Approval", ""].map((h) => (
                     <th
                       key={h}
                       scope="col"
@@ -473,118 +671,152 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {visibleUsers.map((u) => {
-                  const editing = editingId === u.id;
-                  const status = statusOf(u);
-                  return (
-                    <tr key={u.id} className="hover:bg-slate-50/60">
-                      <td className="p-5">
-                        <p className="font-black text-slate-900">{u.email || u.id}</p>
-                        <p className="text-xs font-bold text-slate-400 font-mono">{u.id}</p>
-                        {rowMessage?.id === u.id && (
-                          <p
-                            className={`mt-2 text-xs font-bold flex items-center gap-1 ${rowMessage.ok ? "text-emerald-700" : "text-red-700"}`}
-                          >
-                            {rowMessage.ok ? <CheckCircle2 size={14} /> : <AlertCircle size={14} />}
-                            {rowMessage.text}
-                          </p>
-                        )}
-                      </td>
-                      <td className="p-5">
-                        {editing ? (
-                          <select
-                            value={draft.role}
-                            onChange={(e) => setDraft({ ...draft, role: e.target.value })}
-                            aria-label={`Role for ${u.email}`}
-                            className={field}
-                          >
-                            {ROLES.map((r) => (
-                              <option key={r} value={r}>
-                                {r}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-black border uppercase tracking-wide ${ROLE_BADGE[u.role] || "bg-slate-100 text-slate-600 border-slate-200"}`}
-                          >
-                            {u.role}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-5">
-                        {editing ? (
-                          <input
-                            type="text"
-                            value={draft.clinicId}
-                            maxLength={6}
-                            onChange={(e) =>
-                              setDraft({ ...draft, clinicId: e.target.value.toUpperCase() })
-                            }
-                            aria-label={`Clinic ID for ${u.email}`}
-                            className={`${field} w-28 font-mono tracking-widest`}
-                          />
-                        ) : (
-                          <span className="font-mono font-bold text-slate-700">
-                            {u.clinicId || "—"}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-5">
-                        {editing ? (
-                          <select
-                            value={draft.status}
-                            onChange={(e) => setDraft({ ...draft, status: e.target.value })}
-                            aria-label={`Status for ${u.email}`}
-                            className={field}
-                          >
-                            {STATUSES.map((s) => (
-                              <option key={s} value={s}>
-                                {s}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-black border uppercase tracking-wide ${STATUS_BADGE[status] || STATUS_BADGE.approved}`}
-                          >
-                            {status}
-                          </span>
-                        )}
-                      </td>
-                      <td className="p-5 text-right">
-                        {editing ? (
-                          <div className="flex gap-2 justify-end">
-                            <button
-                              onClick={() => saveEdit(u)}
-                              className="bg-emerald-600 text-white px-4 py-2 rounded-xl font-black text-sm flex items-center gap-1.5 hover:bg-emerald-700"
-                            >
-                              <Save size={15} /> Save
-                            </button>
-                            <button
-                              onClick={() => {
-                                setEditingId(null);
-                                setRowMessage(null);
-                              }}
-                              className="bg-slate-100 text-slate-600 px-4 py-2 rounded-xl font-black text-sm hover:bg-slate-200"
-                            >
-                              Cancel
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => startEdit(u)}
-                            className="text-purple-700 font-black text-sm hover:underline"
-                          >
-                            Edit
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                {doctors.map((u) => renderRow(u, true))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+
+      {/* Patients ---------------------------------------------------------- */}
+      <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+          <Users className="text-emerald-500" size={22} />
+          <h2 className="text-xl font-black text-slate-950">Patients</h2>
+          <span className="text-xs font-black bg-emerald-100 text-emerald-700 px-2.5 py-1 rounded-full">
+            {patients.length}
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="p-6 space-y-3" aria-busy="true">
+            {[0, 1, 2].map((i) => (
+              <div key={i} className="h-14 rounded-2xl bg-slate-100 animate-pulse" />
+            ))}
+          </div>
+        ) : patients.length === 0 ? (
+          <div className="p-12 text-center">
+            <Users size={40} className="mx-auto mb-3 text-slate-300" />
+            <p className="text-slate-600 font-black">
+              {search ? "No patients match your search." : "No patients yet."}
+            </p>
+            {!search && (
+              <p className="text-slate-400 font-medium text-sm mt-2">
+                Patients join by registering with their clinic's ID and need no
+                approval, so they can use the portal immediately.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left min-w-[760px]">
+              <thead className="bg-slate-50 border-b border-slate-200/60">
+                <tr>
+                  {["Patient", "Clinic", "Health record", ""].map((h) => (
+                    <th
+                      key={h}
+                      scope="col"
+                      className="p-5 font-black text-slate-400 text-xs uppercase tracking-widest"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {patients.map((u) => renderRow(u, false))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Clinics ----------------------------------------------------------- */}
+      <div className="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm overflow-hidden">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3 flex-wrap">
+          <Building className="text-slate-500" size={22} />
+          <h2 className="text-xl font-black text-slate-950">Clinics</h2>
+          <span className="text-xs font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full">
+            {clinicIds.length}
+          </span>
+        </div>
+        <p className="px-6 pt-4 text-sm font-medium text-slate-500">
+          Clinics are maintained by their own practitioners on the Clinic Profile
+          page. Shown here for oversight; details are not editable from this
+          panel, so a clinic's record stays owned by the clinic.
+        </p>
+
+        {loading ? (
+          <div className="p-6 space-y-3" aria-busy="true">
+            {[0, 1].map((i) => (
+              <div key={i} className="h-16 rounded-2xl bg-slate-100 animate-pulse" />
+            ))}
+          </div>
+        ) : clinicIds.length === 0 ? (
+          <div className="p-12 text-center">
+            <Building size={40} className="mx-auto mb-3 text-slate-300" />
+            <p className="text-slate-600 font-black">No clinics in use yet.</p>
+          </div>
+        ) : (
+          <div className="p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {clinicIds.map(([id, count]) => {
+              const c = clinicById.get(id);
+              return (
+                <div key={id} className="border border-slate-200 rounded-2xl p-5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-900 truncate">
+                        {c && c.name ? c.name : "No details recorded"}
+                      </p>
+                      <p className="font-mono text-xs font-bold text-slate-400 tracking-widest">
+                        {id}
+                      </p>
+                    </div>
+                    <span className="text-xs font-black bg-slate-100 text-slate-600 px-2.5 py-1 rounded-full flex-shrink-0">
+                      {count} account{count === 1 ? "" : "s"}
+                    </span>
+                  </div>
+
+                  {c ? (
+                    <dl className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                      {[
+                        ["Type", c.type],
+                        ["Registration", c.registrationNo],
+                        ["Phone", c.phone],
+                        ["Email", c.email],
+                        [
+                          "Address",
+                          [c.addressLine1, c.addressLine2, c.city, c.state, c.postalCode, c.country]
+                            .filter(Boolean)
+                            .join(", "),
+                        ],
+                      ]
+                        .filter((row) => Boolean(row[1]))
+                        .map((row) => (
+                          <div key={String(row[0])}>
+                            <dt className="font-black uppercase tracking-widest text-slate-400 text-[10px]">
+                              {row[0]}
+                            </dt>
+                            <dd className="font-bold text-slate-700 break-words">
+                              {row[1]}
+                            </dd>
+                          </div>
+                        ))}
+                    </dl>
+                  ) : (
+                    <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                      A practitioner of this clinic has not recorded its details yet.
+                    </p>
+                  )}
+
+                  {c && c.notes && (
+                    <p className="text-xs font-medium text-slate-500 border-t border-slate-100 pt-3">
+                      {c.notes}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -605,7 +837,8 @@ export default function AdminPanel({ userData }: { userData: UserData | null }) 
 
       <div className="flex items-center gap-2 text-xs font-bold text-slate-400 justify-center pb-4">
         <XCircle size={13} />
-        Showing {visibleUsers.length} of {users.length} accounts
+        Showing {doctors.length + patients.length} of {managed.length} managed accounts
+        {search ? " (filtered)" : ""}
       </div>
     </motion.div>
   );

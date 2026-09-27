@@ -123,3 +123,24 @@ export interface FirestoreTimestamp {
   toMillis: () => number;
   toDate: () => Date;
 }
+
+/** Organisational details of a clinic. The document id IS the clinic ID that
+ *  accounts carry, so there is no separate link to keep in step. */
+export interface Clinic {
+  id: string;
+  name: string;
+  type?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  phone?: string;
+  email?: string;
+  registrationNo?: string;
+  notes?: string;
+  createdBy?: string;
+  createdAt?: FirestoreTimestamp;
+  updatedAt?: FirestoreTimestamp;
+}

@@ -298,6 +298,51 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ---------- clinics ----------
+    // A clinic is a real entity whose details a practitioner maintains: name,
+    // address, contact, registration number. The document id IS the 6-character
+    // clinic ID that accounts carry, so the two are the same thing rather than
+    // needing a link — which is why the ID previously lived only on profiles
+    // and had nowhere to record what the clinic actually is.
+    //
+    // Readable by the clinic's own practitioners and patients, and by an admin
+    // for oversight. This grants an admin NO clinical data: clinic details are
+    // organisational, and patients/assessments/diaries remain denied to admin.
+    match /clinics/{clinicId} {
+      allow read: if isSignedIn() && (
+        ((isDoctor() || isPatient()) && myClinic() == clinicId)
+        || isAdmin()
+      );
+
+      // A practitioner records their OWN clinic. The caller's profile must
+      // already claim this clinic id, so a doctor cannot author a record for a
+      // clinic they do not belong to.
+      allow create: if isDoctor()
+        && clinicId.size() == 6
+        && myClinic() == clinicId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.createdBy == uid();
+
+      // Details are editable by any practitioner of the clinic: a clinic is
+      // shared, and its address or phone is not a per-person fact. The path id
+      // is immutable by construction, `createdBy` is pinned so authorship
+      // cannot be rewritten, and the allowlist stops any other field being
+      // smuggled in beside the edit.
+      allow update: if isDoctor()
+        && myClinic() == clinicId
+        && request.resource.data.get('createdBy', '') == resource.data.get('createdBy', '')
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+             'name', 'type', 'addressLine1', 'addressLine2', 'city', 'state',
+             'postalCode', 'country', 'phone', 'email', 'registrationNo',
+             'notes', 'updatedAt'
+           ]);
+
+      // A clinic is retained: deleting it would orphan every account and record
+      // that carries its id.
+      allow delete: if false;
+    }
+
     // Deny everything else by default.
     match /{document=**} {
       allow read, write: if false;

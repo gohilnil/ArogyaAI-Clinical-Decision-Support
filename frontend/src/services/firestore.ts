@@ -20,7 +20,14 @@ import {
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import type { AnalysisResult, Assessment, Patient, PatientLog, UserData } from "../types";
+import type {
+  AnalysisResult,
+  Assessment,
+  Clinic,
+  Patient,
+  PatientLog,
+  UserData,
+} from "../types";
 
 /** An account profile with its document id, as the admin panel lists it. */
 export interface UserDataWithId extends UserData {
@@ -439,6 +446,54 @@ export async function adminUpdateUser(
  */
 export async function setDoctorStatus(userId: string, status: "approved" | "pending" | "rejected"): Promise<void> {
   await updateDoc(doc(db, "users", userId), { status });
+}
+
+// ---------------------------------------------------------------------------
+// clinics
+// ---------------------------------------------------------------------------
+
+/** The clinic's organisational details, or null when none are recorded yet. */
+export async function getClinic(clinicId: string): Promise<Clinic | null> {
+  const snap = await getDoc(doc(db, "clinics", clinicId));
+  if (!snap.exists()) return null;
+  return { id: snap.id, ...(snap.data() as Omit<Clinic, "id">) };
+}
+
+/**
+ * Record or correct a clinic's details.
+ *
+ * `createdBy` is sent ONLY on the first write, and that detail matters: the
+ * rules require it to equal the caller's uid on create and pin it to its
+ * existing value on update. A clinic is shared, so a SECOND practitioner of the
+ * same clinic editing the address would otherwise send their own uid, fail the
+ * pin, and be denied — the clinic's details would be editable only by whoever
+ * registered first. Omitting it on an edit leaves it untouched and keeps the
+ * affected-keys allowlist satisfied.
+ */
+export async function saveClinic(
+  clinicId: string,
+  createdBy: string,
+  details: Omit<Clinic, "id" | "createdBy">,
+): Promise<void> {
+  const clinic = requireClinic(clinicId);
+  if (!details.name?.trim()) {
+    throw new DomainError("A clinic name is required.");
+  }
+  const ref = doc(db, "clinics", clinic);
+  const existing = await getDoc(ref);
+  const payload: Record<string, unknown> = {
+    ...details,
+    name: details.name.trim(),
+    updatedAt: serverTimestamp(),
+  };
+  if (!existing.exists()) payload.createdBy = createdBy;
+  await setDoc(ref, payload, { merge: true });
+}
+
+/** Every clinic that has a details record. Admin-only by rule. */
+export async function listClinics(): Promise<Clinic[]> {
+  const snap = await getDocs(collection(db, "clinics"));
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Clinic, "id">) }));
 }
 
 // ---------------------------------------------------------------------------
