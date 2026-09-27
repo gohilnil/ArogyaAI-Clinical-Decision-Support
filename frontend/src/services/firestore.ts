@@ -287,11 +287,21 @@ export async function listClinicLogs(clinicId: string): Promise<PatientLog[]> {
  * Redeem a clinician-issued patient code, linking this account to that record.
  * Passing an empty string unlinks. The rules verify the target exists and
  * belongs to the account's own clinic.
+ *
+ * The code is the `patients/{patientId}` DOCUMENT ID, and Firestore document
+ * IDs are case-sensitive. It must therefore be passed through unchanged.
+ *
+ * This previously called `.toUpperCase()` on it, which is right for a clinic ID
+ * or an invite code (both are stored uppercase by construction) but wrong here:
+ * a patient ID is an auto-generated mixed-case string, so uppercasing turned a
+ * valid code into an ID that does not exist. The rules' `exists()` check then
+ * failed and every link attempt was refused — a patient could not link their
+ * own record with a perfectly correct code, and the error blamed the code.
  */
 export async function linkPatientAccount(
   uid: string,
   patientCode: string,
 ): Promise<void> {
-  const code = patientCode.trim().toUpperCase();
+  const code = patientCode.trim();
   await setDoc(doc(db, "users", uid), { patientId: code }, { merge: true });
 }
