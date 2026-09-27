@@ -19,7 +19,7 @@ diagnostic device and has not been clinically evaluated.
 ```
 React (Vite, TypeScript)
    │  Firebase Authentication (email/password, Google)
-   │  Firestore (users, patients, patients/{id}/assessments, patient_logs, invites)
+   │  Firestore (users, patients, patients/{id}/assessments, patient_logs)
    │
    └─ POST /api/predict (Firebase ID token) ─► FastAPI (backend.main)
                                                    │
@@ -53,11 +53,10 @@ Provider: **Firebase Firestore**, project **`arogyaai-cloud-ad667`** (pinned in
 
 | Collection | Written from | Fields |
 |---|---|---|
-| `users` | registration | `email`, `role` (`doctor`/`patient`), `clinicId` |
-| `patients` | Diagnose → Save Record | `name`, `age`, `gender`, `dosha`, `symptoms`, `diagnosis`, `confidence`, `clinicId`, `createdAt` |
+| `users` | registration | `email`, `role` (`patient`/`doctor`/`admin`), `clinicId`, `status` (practitioners: `pending` until approved) |
+| `patients` | Diagnose → Save Record | `name`, `age`, `gender`, `dosha`, `heightCm`, `weightKg`, `clinicId`, `createdBy`, timestamps |
 | `patients/{id}/assessments` | Save Record | one document per visit (append-only) |
-| `patient_logs` | Patient symptom logger | `userId`, `email`, `symptoms`, `clinicId`, `createdAt` |
-| `invites` | created out-of-band only | `used`, `clinicId` |
+| `patient_logs` | Patient symptom logger | `userId`, `email`, `symptoms`, `patientId?`, `clinicId`, `createdAt` |
 
 The Gemini narrative is **displayed only and not stored**.
 
@@ -76,9 +75,10 @@ The Gemini narrative is **displayed only and not stored**.
 
 Register → `createUserWithEmailAndPassword` → `setDoc(users/{uid})` with a role
 and clinic ID → `onAuthStateChanged` loads the profile → role-based routes.
-Practitioner registration additionally consumes an `invites/{code}` document.
-Google sign-in uses `signInWithPopup`. Logout uses `signOut(auth)`. Passwords are
-hashed by Firebase; the application never stores them.
+Practitioner registration records `status: 'pending'`; an administrator approves
+the account before any clinic data becomes readable. Google sign-in uses
+`signInWithPopup`. Logout uses `signOut(auth)`. Passwords are hashed by Firebase;
+the application never stores them.
 
 ## 8. ML flow
 
@@ -114,7 +114,8 @@ Enforced in `firestore.rules`, exercised by the 61-test emulator suite:
 - A patient can read and write **only their own** record and logs.
 - A practitioner can reach **only their own clinic's** data.
 - Assessments and log entries are **append-only** — no client update or delete.
-- Invites are `get`-only by code and **cannot be enumerated** or created from a client.
+- A practitioner registers as `pending` and reaches **nothing** until an admin approves.
+- An admin manages accounts but **cannot read any clinical record**.
 - A collection with no rule is **denied by default**.
 - The API requires a valid Firebase ID token and is rate-limited.
 

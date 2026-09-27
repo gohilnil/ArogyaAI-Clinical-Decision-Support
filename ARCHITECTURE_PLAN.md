@@ -134,8 +134,11 @@ patients/{patientId}/assessments/{assessmentId} patientId, clinicId, symptoms, a
                                                 ← ONE CLINICAL EVENT, append-only
 patient_logs/{logId}                            userId, email, patientId?, clinicId,
                                                 symptoms, createdAt   (append-only)
-invites/{code}                                  used, clinicId
 ```
+
+The `users` document also carries `status` for practitioners (`pending` until an
+administrator approves the account), which is what replaced the earlier
+invite-code onboarding.
 
 **Not created:** `clinics`, `ai_reports`, `appointments`, `notifications`. A
 `clinics` collection would add an entity with no behaviour attached yet — clinic

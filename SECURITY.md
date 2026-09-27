@@ -41,15 +41,22 @@ A client can create exactly one `users/{uid}` document — its own — and the r
 constrains the role it may declare:
 
 - `role == 'patient'` is permitted freely.
-- `role == 'doctor'` additionally requires an **invite code** that (a) exists,
-  (b) has not been used, and (c) was issued for the *same* `clinicId` being
-  claimed. The clinic is taken from the invite, never from the registrant.
+- `role == 'doctor'` self-registers into `status: 'pending'`. The account exists
+  but carries **no access**: `isDoctor()` requires `status == 'approved'`, so a
+  pending account can read its own profile and nothing else — no patients, no
+  assessments, no diaries. Only a platform administrator can approve it.
+- `role == 'admin'` cannot be self-assigned at all. An admin profile is
+  provisioned out of band (Firebase console / Admin SDK), so a compromised
+  client cannot mint an operator account.
 
-*Enforced by:* `firestore.rules` → `match /users/{userId}` → `allow create`.
+*Enforced by:* `firestore.rules` → `match /users/{userId}` → `allow create`,
+plus `isDoctor()` and `doctorStatus()`.
 *Verified by:* `tests/rules/firestore.rules.test.js` —
-"registration CANNOT self-create a doctor without an invite",
-"...with a used invite", "a valid invite CANNOT be redeemed against a different
-clinic", "a non-existent invite code is refused".
+"registration self-creates a doctor in the pending state",
+"registration CANNOT self-create an approved doctor",
+"a doctor cannot register without an explicit pending status",
+"a pending doctor can read only their own profile",
+"only an admin can approve a pending doctor".
 
 ### 3.2 Privilege cannot be escalated after creation
 
@@ -118,21 +125,39 @@ clinic's feed. Entries cannot be modified or deleted by anyone.
 write a log entry attributed to someone else", "a user CANNOT write a log entry
 into another clinic", "logs are append-only".
 
-### 3.5a Invite codes cannot be enumerated
+### 3.5a Admin approval gates practitioner access
 
-An invite may be fetched by its exact code but the collection may **not** be
-listed. `get` and `list` are separate rules for this reason: a single `read`
-would also authorise a query, letting any signed-in account discover every
-invite and its `clinicId`, then register as a doctor in a clinic of their
-choosing. The code is treated as a capability that must be presented, not
-discovered.
+Practitioner onboarding is an approval, not a secret. A doctor self-registers
+into `status: 'pending'` and an administrator approves or rejects the account.
+Until approval, `isDoctor()` is false and the account can read only its own
+profile.
 
-*Enforced by:* `match /invites/{code}` → `allow get` / `allow list: if false`.
-*Verified by:* "an invite can be fetched by code but NOT enumerated".
+The approval state is **immutable to its owner**. The owner-update rule pins
+`status` alongside `role`, `clinicId` and `email`, so a pending doctor cannot
+approve themself — without that check the workflow would be decorative.
 
-*Consequence for operators:* issuer-side code entropy now matters, since the code
-is the only secret. Use a long random code (the console generates one; do not
-hand-write short codes).
+An admin may set `role`, `clinicId`, `email` or `status` on any account, but
+remains bounded: `affectedKeys().hasOnly([...])` confines which fields an admin
+update may touch, the role must be one of the three known values, `status` must
+be one of the known states, and a patient's record link must belong to that
+account's clinic.
+
+**Admins have no access to clinical data.** Patients, assessments and diaries
+are denied to an admin by rule, because "can provision an account" must not
+imply "can read a patient's history". This separation of duties is asserted
+directly by a test.
+
+*Enforced by:* `doctorStatus()`, `isDoctor()`, `isAdmin()`, and the `allow
+update` branches in `match /users/{userId}`.
+*Verified by:* "only an admin can approve a pending doctor", "an admin can
+reject a pending doctor", "an admin CANNOT set an unknown status", "admin gains
+NOTHING over clinical data", "an admin cannot self-mint an admin profile at
+registration".
+
+*History:* an invite-code system preceded this and was removed on 2026-09-27. It
+put a human in the loop on the happy path and made onboarding depend on a code
+being transmitted correctly. The `invites` collection no longer exists in the
+rules and falls through to default-deny.
 
 ### 3.6 Unauthenticated requests are refused
 
@@ -206,35 +231,36 @@ firebase emulators:exec --only firestore --project arogyaai-cloud-ad667 \
   "cd tests/rules && npm test"
 ```
 
-**Status: 61/61 rules tests pass**, executed against the emulator with Temurin
+**Status: 83/83 rules tests pass**, executed against the emulator with Temurin
 JRE 21.0.12.1 — not merely syntax-checked. This includes the regressions for the
-clinic-binding and invite-enumeration fixes in §3.5 and §3.5a, and query-level
-coverage for the list queries the UI issues (a `getDoc` test does not prove a
-`getDocs` query is authorised — Firestore denies the whole result set if the
-query's own constraints cannot satisfy the rule).
+clinic-binding, admin-approval and patient self-edit behaviours in §3.4 and
+§3.5a, and query-level coverage for the list queries the UI issues (a `getDoc`
+test does not prove a `getDocs` query is authorised — Firestore denies the whole
+result set if the query's own constraints cannot satisfy the rule).
 
-The rules those tests exercise are the ones in this repository. Whether the
-*deployed* rules match them is a separate question, still open (§6.1).
+The deployed ruleset was fetched and compared against this repository's
+`firestore.rules`: they are **identical**. Rules do not auto-deploy from a git
+push, so this must be re-checked after any rule change rather than assumed.
 
 ## 6. Known gaps
 
 These are real and are **not** claimed as solved:
 
-1. **The live rules could not be read.** No Firebase CLI session, service
-   account or console access was available, so the currently deployed rules
-   cannot be quoted here. What *was* established by direct probe:
-   unauthenticated reads of `users` and `patients` return `403
-   PERMISSION_DENIED`, so the deployed rules are **not** open. The rules in this
-   repository are the intended target and still need to be **deployed**.
+1. **Rules and indexes require an explicit deploy.** Unlike the frontend and
+   backend, they do not deploy from a `git push`. A change that is committed but
+   not deployed leaves the UI offering a capability the rules deny — which
+   happened once, and is why the deployed ruleset is now diffed against the
+   repository after every rule change.
 2. **Legacy per-diagnosis documents are not migrated.** Records written before
    Phase 4 use the old shape (one document per diagnosis, identity copied in,
    `diagnosis` instead of `prediction`). They are deliberately left in place and
    are not displayed, because deciding whether two such rows are the same person
    is a clinical-safety judgement that cannot be automated safely. See
    `PHASE_4_MIGRATION_PLAN.md` §4.
-3. **Invite documents are created manually** (console or admin SDK), which
-   bypasses the rules by design. There is no self-service invite UI, and an
-   admin role was deliberately not invented.
+3. **The first administrator is provisioned out of band** (console or Admin
+   SDK), which bypasses the rules by design. There is deliberately no client path
+   to create an admin account, so a compromised browser cannot mint an operator.
+   Subsequent practitioner onboarding is self-service via the admin panel.
 4. **Rate limiting is per-process, not shared.** `/api/predict` now enforces a
    per-caller ceiling (`AROGYA_RATE_LIMIT_PER_MINUTE`, default 30/min) keyed on
    the verified uid, implemented as an in-process sliding window

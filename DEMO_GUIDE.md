@@ -71,8 +71,10 @@ Full detail: `MODEL_CARD.md`.
 1. Open the app.
 2. Point out the role selector (patient / practitioner) and the Google sign-in option.
 3. **Say:** *"Registration and login are handled by Firebase Authentication;
-   passwords are never stored by our code. A practitioner additionally needs an
-   invite code, which Firestore rules make impossible to create from a client."*
+   passwords are never stored by our code. A practitioner self-registers with a
+   Clinic ID and then waits for a platform administrator to approve the account —
+   Firestore rules make that approval impossible to grant from a client, so a
+   pending doctor can read their own profile and nothing else."*
 
 ### Step 2 — Run a prediction (practitioner)
 

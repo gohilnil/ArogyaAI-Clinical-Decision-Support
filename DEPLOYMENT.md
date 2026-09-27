@@ -72,8 +72,8 @@ Firestore rules (needs Java):
 ```bash
 firebase emulators:exec --only firestore --project arogyaai-cloud-ad667 "cd tests/rules && npm test"
 ```
-Expected: **61 tests pass**, including the clinic-binding,
-invite-not-enumerable, and assessment-query-scoping regressions.
+Expected: **83 tests pass**, including the clinic-binding, admin-approval, and
+assessment-query-scoping regressions.
 
 ### Authenticated end-to-end run (emulators, no production impact)
 
@@ -104,18 +104,19 @@ cd frontend && npm run dev
 ```
 
 ```bash
-# 4. Seed a practitioner invite — the rules forbid creating one from a client,
-#    so it must come from an admin path, exactly as in production.
-curl -s -X POST -H "Authorization: Bearer owner" -H "Content-Type: application/json" \
-  "http://127.0.0.1:8080/v1/projects/arogyaai-cloud-ad667/databases/(default)/documents/invites?documentId=LOCALINVITE01" \
-  -d '{"fields":{"used":{"booleanValue":false},"clinicId":{"stringValue":"CLIN01"}}}'
+# 4. Register a practitioner in the browser, then approve it. A doctor
+#    self-registers into `status: pending` and an admin approves; seeding the
+#    approval directly with the emulator's owner token is the shortcut.
+curl -s -X PATCH -H "Authorization: Bearer owner" -H "Content-Type: application/json" \
+  "http://127.0.0.1:8080/v1/projects/arogyaai-cloud-ad667/databases/(default)/documents/users/<DOCTOR_UID>?updateMask.fieldPaths=status" \
+  -d '{"fields":{"status":{"stringValue":"approved"}}}'
 ```
 
 Then in the browser: register a patient with Clinic ID `CLIN01`, sign out,
-register a practitioner with invite `LOCALINVITE01`, run an analysis, and open
-the patient record. Two defects were only ever visible by doing this — a
-registration race and a wrongly-scoped history query — so it is worth running
-before any deployment.
+register a practitioner with the same Clinic ID, approve it as above, run an
+analysis, and open the patient record. Two defects were only ever visible by
+doing this — a registration race and a wrongly-scoped history query — so it is
+worth running before any deployment.
 
 ## 2. Environment variables
 
@@ -182,30 +183,33 @@ empty — no composite index is required).
 firebase deploy --only firestore:rules,firestore:indexes --project arogyaai-cloud-ad667
 ```
 
-**Do not run this until the emulator suite passes locally (§1).** The rules in the
-repository include two fixes that are not in whatever may currently be deployed:
-`patient_logs` entries are bound to the writer's own clinic, and invites are
-`get`-only (not listable/enumerable).
+**Do not run this until the emulator suite passes locally (§1).**
 
-Rules deployment is UNVERIFIED. It requires a Firebase login with access to the
-project; that access was not available here.
+Rules and indexes do **not** auto-deploy from a `git push`, unlike Vercel and
+Render. After changing `firestore.rules` or `firestore.indexes.json`, deploy
+them explicitly, then verify by fetching the live ruleset and diffing it against
+the repository file — do not assume the deploy landed.
 
-### Invite codes
+### Approving a practitioner
 
-Doctor registration requires an invite document created **out of band**, because
-the rules forbid a client from creating one:
+Doctor onboarding is an approval, not a secret. A doctor self-registers into
+`status: 'pending'` with their clinic's ID; the account has no access until an
+administrator approves it from the admin panel (Admin → Awaiting approval).
+
+The first administrator must be provisioned **out of band**, because the rules
+deliberately provide no client path to create one:
 
 ```
-invites/{CODE}  ->  { used: false, clinicId: "<6-char clinic id>" }
+Auth account: admin@example.com (Firebase console / Admin SDK)
+users/{uid}  ->  { email, role: "admin", clinicId: "<6-char clinic id>" }
 ```
 
-Create these in the Firebase console or with the Admin SDK. Use a **long random
-code** — it is now the only secret protecting the capability, since enumeration
-is blocked but guessing is not. Never hand-write a short code.
+An invite-code system preceded this and was removed on 2026-09-27. There is no
+`invites` collection in the rules; it falls through to default-deny.
 
 ## 6. What is deliberately NOT automated
 
-- **Invite creation** — manual by design (no admin role was invented).
+- **Admin provisioning** — out of band by design; no client can mint an admin.
 - **Legacy record migration** — deliberately not automated. Pre-Phase-4
   per-diagnosis documents are left in place because deciding whether two rows
   describe the same person is a clinical-safety judgement no script should make.
@@ -238,7 +242,7 @@ The backend and frontend are independently revertable:
 - [ ] `POST /api/predict` with a real token → 200, prediction + explanation.
 - [ ] Prediction calls from the deployed frontend origin are not CORS-blocked.
 - [ ] Exceeding the rate limit → 429 with `Retry-After`.
-- [ ] Doctor registration with a fresh invite succeeds; with a used invite fails.
+- [ ] Doctor registration lands `pending` and cannot read clinic data until approved.
 - [ ] A patient can read only their own record.
 - [ ] A practitioner cannot read another clinic's records.
 - [ ] Firestore rules deployed (confirm in the console that the live rules match
