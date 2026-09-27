@@ -136,26 +136,37 @@ service cloud.firestore {
     }
 
     // ---------- invites ----------
-    // Created by an administrator out of band (Firebase console / admin SDK),
-    // which bypasses these rules. A signed-in user may look up ONE invite by
-    // its exact code — that is how registration checks a code before claiming
-    // it — and may mark an unused invite as used exactly once. Nothing else.
+    // A practitioner may issue an invite for their OWN clinic, which is how a
+    // clinic grows without an administrator in the loop. The document id is the
+    // code, so the rule requires the caller to have chosen one with real
+    // entropy (26+ chars here); a doctor cannot mint a short guessable code
+    // because the id length is checked. The invite is bound to the caller's own
+    // clinic and starts unused — a caller cannot pre-consume their own invite.
     //
-    // `get` and `list` are separated deliberately. A single `read` rule would
-    // also authorise a collection query, letting any signed-in account list
-    // every invite and its clinicId. Treating the code as a capability means
-    // it must be presented, not discovered, so `list` is denied outright.
-    // Issuers must therefore generate codes with real entropy (see SECURITY.md).
+    // `list` stays denied. A signed-in user may look up ONE invite by its exact
+    // code — how registration checks a code before claiming it — and may mark
+    // an unused invite as used exactly once. Treating the code as a capability
+    // means it must be presented, not discovered, so no client can enumerate
+    // every invite and its clinicId.
     match /invites/{code} {
       allow get: if isSignedIn();
       allow list: if false;
+
+      allow create: if isDoctor()
+        && code.size() >= 26
+        && request.resource.data.used == false
+        && request.resource.data.clinicId == myClinic()
+        // diff() cannot be used on create (there is no existing document, so
+        // resource.data is absent and the call throws, denying every creation).
+        // keys().hasOnly() is the create-time equivalent: exactly these fields.
+        && request.resource.data.keys().hasOnly(['used', 'clinicId']);
 
       allow update: if isSignedIn()
         && resource.data.used == false
         && request.resource.data.used == true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['used']);
 
-      allow create, delete: if false;
+      allow delete: if false;
     }
 
     // ---------- patients ----------

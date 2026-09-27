@@ -394,6 +394,40 @@ export async function listClinicLogs(clinicId: string): Promise<PatientLog[]> {
 }
 
 // ---------------------------------------------------------------------------
+// practitioner-issued codes
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate an invite code a colleague can register a practitioner account with.
+ *
+ * The code IS the Firestore document id, so it must carry real entropy: the
+ * rules reject anything shorter than 26 characters precisely so a doctor cannot
+ * self-issue a short guessable code. 24 base32 characters (no I/O/0/1, so a
+ * code survives being read aloud or written down) over ~120 bits is far beyond
+ * any brute-force reach. Returned unhyphenated in groups for readability.
+ *
+ * The rules bind the invite to the caller's own clinic and reject a pre-used
+ * one; nothing here needs to be trusted.
+ */
+export function generateInviteCode(): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  const raw = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+  return `${raw.slice(0, 8)}-${raw.slice(8, 16)}-${raw.slice(16, 24)}`;
+}
+
+/** Persist a doctor-issued invite, bound to the caller's own clinic. */
+export async function createInvite(
+  clinicId: string,
+  code: string,
+): Promise<string> {
+  const clinic = requireClinic(clinicId);
+  await setDoc(doc(db, "invites", code), { used: false, clinicId: clinic });
+  return code;
+}
+
+// ---------------------------------------------------------------------------
 // account <-> patient link
 // ---------------------------------------------------------------------------
 

@@ -695,8 +695,65 @@ test("a doctor cannot attach a patient's entry", async () => {
 // ---------------------------------------------------------------------------
 // invites and default-deny
 // ---------------------------------------------------------------------------
-test("an invite cannot be created or deleted from a client", async () => {
-  await assertFails(setDoc(doc(as(DOCTOR_A), "invites", "SELF01"), { used: false, clinicId: "CLIN01" }));
+// A practitioner may issue an invite for their OWN clinic — that is how a
+// clinic grows without an administrator in the loop. The document id is the
+// code, so the rule demands real entropy (>=26 chars) and binds the invite to
+// the caller's clinic, unused. Everything else stays as before: no listing,
+// no delete, consume-once.
+const LONG_CODE = "AROGYA-ABCDE26CHARS-MINIMUM-OK"; // 30 chars
+const SHORT_CODE = "AROGYA-SHORT"; // 12 chars — below the entropy floor
+
+test("a doctor CAN issue an invite for their own clinic", async () => {
+  await assertSucceeds(
+    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE), {
+      used: false, clinicId: "CLIN01",
+    }),
+  );
+});
+
+test("a doctor CANNOT issue an invite for another clinic", async () => {
+  await assertFails(
+    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE + "-X"), {
+      used: false, clinicId: "CLIN02",
+    }),
+  );
+});
+
+test("a patient CANNOT issue an invite at all", async () => {
+  await assertFails(
+    setDoc(doc(as(PATIENT_1), "invites", LONG_CODE + "-P"), {
+      used: false, clinicId: "CLIN01",
+    }),
+  );
+});
+
+test("a doctor CANNOT mint a short, guessable invite code", async () => {
+  // The code IS the capability, so a caller-chosen id must carry entropy. The
+  // length floor is what stops "INVITE1" being self-issued and guessed.
+  await assertFails(
+    setDoc(doc(as(DOCTOR_A), "invites", SHORT_CODE), {
+      used: false, clinicId: "CLIN01",
+    }),
+  );
+});
+
+test("an issued invite cannot be pre-consumed by its issuer", async () => {
+  await assertFails(
+    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE + "-C"), {
+      used: true, clinicId: "CLIN01",
+    }),
+  );
+});
+
+test("an issued invite cannot carry extra fields", async () => {
+  await assertFails(
+    setDoc(doc(as(DOCTOR_A), "invites", LONG_CODE + "-D"), {
+      used: false, clinicId: "CLIN01", role: "admin",
+    }),
+  );
+});
+
+test("an invite still cannot be deleted from a client", async () => {
   await assertFails(deleteDoc(doc(as(DOCTOR_A), "invites", "VALID1")));
 });
 

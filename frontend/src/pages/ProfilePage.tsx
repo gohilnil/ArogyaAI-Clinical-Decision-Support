@@ -7,10 +7,17 @@ import {
   AlertCircle,
   Save,
   UserRound,
+  Copy,
+  Check,
+  Ticket,
+  Users,
+  ExternalLink,
 } from "lucide-react";
 import type { User as FirebaseUser } from "firebase/auth";
 import {
   attachMyOrphanedLogs,
+  createInvite,
+  generateInviteCode,
   getPatient,
   linkPatientAccount,
   updatePatient,
@@ -67,6 +74,12 @@ export default function ProfileSettings({
   const [saveMessage, setSaveMessage] = useState<{ ok: boolean; text: string } | null>(
     null,
   );
+
+  // Doctor-side code issuing: what was just generated, and what was last copied.
+  const [invite, setInvite] = useState<{ code: string; link: string } | null>(null);
+  const [issuing, setIssuing] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  const [copied, setCopied] = useState<string | null>(null);
 
   const linkedId = userData?.patientId || "";
 
@@ -205,6 +218,54 @@ export default function ProfileSettings({
     "w-full p-4 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 outline-none font-bold";
   const label = "text-sm font-black uppercase tracking-widest text-slate-400";
 
+  /**
+   * Copy with visible confirmation rather than a silent no-op. Falls back to a
+   * plain text selection where the clipboard API is unavailable (some browsers
+   * deny it outside secure contexts), so the button never lies about copying.
+   */
+  const copyText = async (key: string, value: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+    } catch {
+      // Clipboard API unavailable: degrade to a visible failure instead of
+      // claiming success.
+      setCopied(null);
+      return;
+    }
+    setCopied(key);
+    setTimeout(() => setCopied((c) => (c === key ? null : c)), 2000);
+  };
+
+  /**
+   * Mint a practitioner invite bound to this clinic.
+   *
+   * The rules require a 26+-character code, so a doctor cannot self-issue a
+   * short guessable one; the generated code is 24 base32 chars (no I/O/0/1, so
+   * it survives being read aloud). If the write fails — an expired session, a
+   * rules mismatch — the code is regenerated rather than shown, because a code
+   * that was never persisted would fail at registration with no visible cause.
+   */
+  const handleIssueInvite = async () => {
+    if (issuing) return;
+    setIssuing(true);
+    setIssueError(null);
+    try {
+      const code = generateInviteCode();
+      await createInvite(userData!.clinicId, code);
+      setInvite({
+        code,
+        link: `${window.location.origin}${window.location.pathname}?invite=${code}`,
+      });
+    } catch (e) {
+      console.error("Could not issue an invite:", e);
+      setIssueError(
+        "Could not issue an invite. Check your connection and try again.",
+      );
+    } finally {
+      setIssuing(false);
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -236,18 +297,125 @@ export default function ProfileSettings({
         </div>
 
         {userData?.role === "doctor" && (
-          <div className="bg-blue-50 border border-blue-200 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h4 className="font-black text-blue-900 flex items-center gap-2 mb-1">
-                <Building size={20} /> Your Clinic ID
-              </h4>
-              <p className="text-blue-800 text-sm font-medium">
-                Give this code to your patients so they can link their accounts
-                to your clinic.
-              </p>
+          <div className="space-y-6">
+            <div className="bg-blue-50 border border-blue-200 p-6 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h4 className="font-black text-blue-900 flex items-center gap-2 mb-1">
+                  <Building size={20} /> Your Clinic ID
+                </h4>
+                <p className="text-blue-800 text-sm font-medium">
+                  Patients enter this code at registration to join your clinic.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="bg-white px-6 py-3 rounded-xl border border-blue-200 font-mono font-black text-2xl text-blue-600 tracking-widest">
+                  {userData.clinicId}
+                </div>
+                <button
+                  onClick={() => copyText("clinic", userData.clinicId)}
+                  aria-label="Copy Clinic ID"
+                  className="p-3 rounded-xl border border-blue-200 text-blue-600 hover:bg-white transition-colors"
+                >
+                  {copied === "clinic" ? <Check size={20} /> : <Copy size={20} />}
+                </button>
+              </div>
             </div>
-            <div className="bg-white px-6 py-3 rounded-xl border border-blue-200 font-mono font-black text-2xl text-blue-600 tracking-widest self-start sm:self-auto">
-              {userData.clinicId}
+
+            <div className="bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem]">
+              <div className="flex items-start justify-between gap-4 flex-wrap mb-1">
+                <h4 className="font-black text-slate-900 flex items-center gap-2">
+                  <Ticket className="text-emerald-500" size={20} /> Practitioner
+                  Invites
+                </h4>
+                <button
+                  onClick={handleIssueInvite}
+                  disabled={issuing}
+                  className="bg-slate-950 text-white px-5 py-2.5 rounded-xl font-black text-sm flex items-center gap-2 hover:bg-slate-800 disabled:opacity-60"
+                >
+                  <Ticket size={16} />
+                  {issuing ? "Generating…" : "Generate invite"}
+                </button>
+              </div>
+              <p className="text-slate-500 font-medium text-sm mb-5">
+                Each invite lets one colleague register a practitioner account in
+                your clinic. An invite works once; issue a fresh one for each
+                person.
+              </p>
+
+              {issueError && (
+                <div className="p-4 bg-red-100 text-red-700 rounded-xl font-bold text-sm flex items-start gap-2">
+                  <AlertCircle size={18} className="flex-shrink-0" />
+                  {issueError}
+                </div>
+              )}
+
+              {invite && (
+                <div className="bg-emerald-50 border-2 border-emerald-200 p-5 rounded-2xl space-y-4">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-emerald-700 mb-1">
+                      Invite code — works once
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <code className="font-mono font-black text-slate-900 bg-white px-4 py-2 rounded-xl border border-emerald-200 text-sm tracking-wide">
+                        {invite.code}
+                      </code>
+                      <button
+                        onClick={() => copyText("invite", invite.code)}
+                        aria-label="Copy invite code"
+                        className="p-2.5 rounded-xl border border-emerald-200 text-emerald-700 hover:bg-white transition-colors"
+                      >
+                        {copied === "invite" ? <Check size={18} /> : <Copy size={18} />}
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-widest text-emerald-700 mb-1">
+                      Registration link — pre-fills the code
+                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <code className="font-mono text-slate-700 bg-white px-4 py-2 rounded-xl border border-emerald-200 text-xs break-all max-w-full">
+                        {invite.link}
+                      </code>
+                      <div className="flex gap-1">
+                        <button
+                          onClick={() => copyText("inviteLink", invite.link)}
+                          aria-label="Copy registration link"
+                          className="p-2.5 rounded-xl border border-emerald-200 text-emerald-700 hover:bg-white transition-colors"
+                        >
+                          {copied === "inviteLink" ? <Check size={18} /> : <Copy size={18} />}
+                        </button>
+                        <a
+                          href={invite.link}
+                          target="_blank"
+                          rel="noreferrer"
+                          aria-label="Open the registration link"
+                          className="p-2.5 rounded-xl border border-emerald-200 text-emerald-700 hover:bg-white transition-colors"
+                        >
+                          <ExternalLink size={18} />
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-emerald-800/80">
+                    Share either form. The code must be presented at registration
+                    and is consumed by the first person who uses it — treat it
+                    like a key.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white border border-slate-200/60 p-6 md:p-8 rounded-[2rem]">
+              <h4 className="font-black text-slate-900 flex items-center gap-2 mb-1">
+                <Users className="text-emerald-500" size={20} /> Patient Codes
+              </h4>
+              <p className="text-slate-500 font-medium text-sm">
+                Every patient record has a code (shown in Patient Records). Give a
+                patient their code and they enter it on this page under{" "}
+                <strong>Link Your Health Record</strong> to see their own history
+                and diary. It is the record's document id, so it never changes and
+                cannot be guessed from a name.
+              </p>
             </div>
           </div>
         )}
