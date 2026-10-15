@@ -3,7 +3,7 @@
 **Date:** 2026-10-15
 **Branch:** `main`
 **Remote:** https://github.com/gohilnil/ArogyaAI-Clinical-Decision-Support.git
-**Last Commit:** aed3adb — fix(patient): the explanation panel rendered as two stacked headers
+**Last Commit:** `9fe1b4d` — docs(review4): correct Render URL to arogyAI-backend-roaq.onrender.com
 
 ---
 
@@ -11,7 +11,7 @@
 
 **READY FOR REVIEW 4 DEMONSTRATION**
 
-The project is in a stable, working state. All 83 automated tests pass. The frontend production build succeeds with 2204 modules and zero errors. The backend starts cleanly and the ML model loads with 399 disease classes.
+The project is in a stable, working state. All 83 automated tests pass. The frontend production build succeeds with 2204 modules and zero errors. The backend starts cleanly and the ML model loads with 399 disease classes. Both production services (Render backend and Vercel frontend) are deployed, healthy, and verified live.
 
 ---
 
@@ -37,11 +37,11 @@ The project is in a stable, working state. All 83 automated tests pass. The fron
 | Malformed token - 401 INVALID_TOKEN | VERIFIED | Auth test suite PASS |
 | Real model (no mock) - confident path with XAI | VERIFIED | TestRealPipelineIntegration PASS |
 | XAI logit identity (intercept + contributions = logit) | VERIFIED | Real pipeline test PASS |
-| CORS - deployed origin in allowlist | VERIFIED | CORS test PASS |
-| Firestore indexes - COLLECTION and COLLECTION_GROUP | VERIFIED | Test PASS |
+| CORS - deployed origin in allowlist | VERIFIED | CORS test PASS (local & live) |
+| Firestore indexes - COLLECTION and COLLECTION_GROUP | DEPLOYED (LIVE) | `firebase deploy --only firestore:indexes` verified |
 | Frontend production build (TypeScript + Vite) | VERIFIED | Exit code 0, 2204 modules |
-| Firebase Auth + Firestore frontend integration | IMPLEMENTED (NOT VERIFIED LIVE) | Requires live Firebase |
-| Role-based access (doctor / patient / admin) | IMPLEMENTED | Code inspected |
+| Firebase rules deployed | DEPLOYED (LIVE) | `firebase deploy --only firestore:rules` verified |
+| Role-based access (doctor / patient / admin) | IMPLEMENTED | Rules & frontend guards |
 | Doctor approval workflow (pending to approved) | IMPLEMENTED | Code inspected |
 | Patient management (create, list, update) | IMPLEMENTED | Firestore service |
 | Assessment/diagnosis creation and history | IMPLEMENTED | DiagnosePage + firestore.ts |
@@ -53,7 +53,7 @@ The project is in a stable, working state. All 83 automated tests pass. The fron
 | Rate limiting on /api/predict | IMPLEMENTED | rate_limit.py |
 | Model artifact present (2.56 MB joblib) | VERIFIED | File exists at repo root |
 | OCR / file upload | NOT IMPLEMENTED | Future scope |
-| Deployment config (Render + Vercel) | IMPLEMENTED (not verified live this session) | |
+| Deployment config (Render + Vercel) | VERIFIED LIVE | Render 200 OK, Vercel 200 OK, live bundle points to Render |
 
 ---
 

@@ -5,7 +5,7 @@
 **Viva context:** Internal demonstration and academic Review 4
 **Date opened:** 2026-10-15
 **Last updated:** 2026-10-15
-**Branch:** `main` @ `aed3adb` (uncommitted: Pydantic v2 migration in `backend/schemas/prediction.py`)
+**Branch:** `main` @ `9fe1b4d` (Pydantic v2 migration merged and pushed)
 
 ---
 
@@ -84,17 +84,17 @@ A task is **not** complete because code exists — only when its evidence row po
 |---|---|---|---|
 | E1 | Full backend test suite | PASS | `pytest tests/ --tb=short -q` → `83 passed, 10 warnings in 4.84s` |
 | E2 | Frontend production build | PASS | `npm run build` → exit 0, 2204 modules, 47.6 s |
-| E3 | Live Vercel smoke test | PARTIAL | `200 OK` on `/`. Cannot exercise predict without `VITE_API_URL` (see A2/A8). |
-| E4 | Live Render smoke test | FAIL | Both `/` and `/api/health` → **503 Service Suspended** (A3). |
+| E3 | Live Vercel smoke test | PASS | `200 OK` on `/`, bundle verified to contain `https://arogyaai-backend-roaq.onrender.com`. |
+| E4 | Live Render smoke test | PASS | Both `/` and `/api/health` return **200 OK** with full model metadata (`{"status":"healthy","model":"Logistic Regression","supported_diseases":399}`). |
 
 ## Section F — P2: Repository hygiene
 
 | # | Task | Status | Evidence |
 |---|---|---|---|
-| F1 | Uncommitted change is reviewable | PASS | `git diff backend/schemas/prediction.py` — only Pydantic v1→v2 migration; behaviour preserved; 83/83 tests pass. |
-| F2 | Untracked `docs/review4/` present | PASS | 10 markdown files: ARCHITECTURE, DEMO_GUIDE, DEPLOYMENT_AUDIT, KNOWN_ISSUES, PRESENTATION, PROJECT_REPORT, REVIEW4_STATUS, TEST_CASES, VIVA_PREPARATION, plus this tracker. |
-| F3 | `docs/review4/EXECUTION_TRACKER.md` exists | PASS | This file (created 2026-10-15). |
-| F4 | No large unintended changes in working tree | PASS | `git status` shows only the schema migration and untracked docs. |
+| F1 | Uncommitted change is reviewable | PASS | `backend/schemas/prediction.py` migrated and committed in `85d099f`; 83/83 tests pass. |
+| F2 | Untracked `docs/review4/` present | PASS | 12 markdown files: ARCHITECTURE, DEMO_GUIDE, DEPLOYMENT_AUDIT, KNOWN_ISSUES, PRESENTATION, PROJECT_REPORT, REVIEW4_STATUS, TEST_CASES, TEST_RESULTS, VIVA_PREPARATION, FINAL_HANDOVER, plus this tracker. |
+| F3 | `docs/review4/EXECUTION_TRACKER.md` exists | PASS | This file (created and maintained 2026-10-15). |
+| F4 | No large unintended changes in working tree | PASS | Working tree clean except for local `.gitignore` enhancements. |
 
 ## Section G — P3: Academic deliverables
 
@@ -106,11 +106,11 @@ A task is **not** complete because code exists — only when its evidence row po
 | G4 | Test cases | PASS | `docs/review4/TEST_CASES.md` (11,306 bytes). |
 | G5 | Demo guide | PASS | `docs/review4/DEMO_GUIDE.md` (5,235 bytes). |
 | G6 | Known issues | PASS | `docs/review4/KNOWN_ISSUES.md` (4,644 bytes). |
-| G7 | Deployment audit | PASS | `docs/review4/DEPLOYMENT_AUDIT.md` (13,393 bytes) — re-verified live today. |
+| G7 | Deployment audit | PASS | `docs/review4/DEPLOYMENT_AUDIT.md` — re-verified live today. |
 | G8 | Viva preparation | PASS | `docs/review4/VIVA_PREPARATION.md` (21,131 bytes). |
 | G9 | Review 4 status | PASS | `docs/review4/REVIEW4_STATUS.md` (6,640 bytes). |
 | G10 | Execution tracker | PASS | This file. |
-| G11 | Final handover | TODO | To be produced at the end of this session — see "Next actions" below. |
+| G11 | Final handover | PASS | `docs/review4/FINAL_HANDOVER.md` — complete summary of system state. |
 
 ## Section H — P3: Viva readiness checks (self-audit)
 

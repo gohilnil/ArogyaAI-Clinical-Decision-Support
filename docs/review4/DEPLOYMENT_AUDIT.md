@@ -37,77 +37,37 @@ Legend: VERIFIED = live probe passed | FAIL = live probe failed | BLOCKED = requ
 
 ---
 
-## Re-verification (2026-10-15, second pass) — what changed since the first audit
-
-| Check | Result |
-|---|---|
-| `curl https://arogya-ai-clinical-decision-support-nine.vercel.app/` | **200 OK** (page loads) |
-| `curl https://arogya-backend.onrender.com/` | **503 Service Suspended** — still down (BLOCKED on Render dashboard resume) |
-| `curl https://arogya-backend.onrender.com/api/health` | **503** — same |
-| `firebase deploy --only firestore:rules --project arogyaai-cloud-ad667` | **SUCCESS** — rules compiled and released |
-| `firebase deploy --only firestore:indexes --project arogyaai-cloud-ad667` | **SUCCESS** — indexes deployed |
-| `vercel env rm VITE_API_URL production` + `vercel env add ... production --value https://arogya-backend.onrender.com` | **SUCCESS** — value replaced |
-| `git push origin main` at commit `85d099f` | **SUCCESS** — Vercel auto-deployed a new production build (`arogya-ai-clinical-decision-support-p3pa-mfjesu9js.vercel.app`, status Ready, 33s) |
-| Inspected new bundle `assets/DiagnosePage-j4J7mXvZ.js` | **Contains `https://arogya-backend.onrender.com`** — the live frontend now points to the correct backend |
-| `pytest tests/` | **83 passed, 10 warnings** |
-| Backend `TestClient` predict with real model | Working: typhoid symptoms → Typhoid 99.77 %, common-cold symptoms → Common Cold 99.63 %, garbage input → "Inconclusive Data" with safety-threshold fallback message |
-| Pydantic v2 migration | Verified: empty Symptoms rejected, whitespace stripped, string→int coercion, range validation all working |
-| Auth gate (real `require_user` dependency) | 401 with `{code: MISSING_TOKEN}` envelope as expected |
-
-**Net change:** VITE_API_URL is now correct in the Vercel production build. Firebase rules and indexes are deployed. The remaining production blocker is **the suspended Render service** — that one is the user's manual dashboard action.
-
----
-
-## Re-verification (2026-10-15) — what changed since the first audit
-
-| Check | Result |
-|---|---|
-| `curl https://arogya-ai-clinical-decision-support-nine.vercel.app/` | **200 OK** (page loads) |
-| `curl https://arogya-backend.onrender.com/` | **503 Service Suspended** — still down |
-| `curl https://arogya-backend.onrender.com/api/health` | **503** — same |
-| `git status` | One uncommitted change: `backend/schemas/prediction.py` (Pydantic v1→v2 migration). 83/83 tests still pass. |
-| `pytest tests/` | **83 passed, 10 warnings in 4.84s** |
-| `npm run build` (frontend) | Exit 0, 2204 modules, 47.6 s |
-| Backend `TestClient` predict with real model | Working: typhoid symptoms → Typhoid 99.77 %, common-cold symptoms → Common Cold 99.63 %, garbage input → "Inconclusive Data" with safety-threshold fallback message |
-| Pydantic v2 migration | Verified: empty Symptoms rejected, whitespace stripped, string→int coercion, range validation all working |
-| Auth gate (real `require_user` dependency) | 401 with `{code: MISSING_TOKEN}` envelope as expected |
-| Live Gemini call (no key set) | Falls back to safety-threshold message; no fabricated text |
-
-**Conclusion:** all of the original audit's findings remain accurate. The two production blockers (Render 503, VITE_API_URL not set in Vercel) are still open. Everything that was previously verified locally is still verified locally today.
-
----
-
 ## AUDIT FINDINGS — SUMMARY TABLE
 
 | # | Component | Finding | Status | Your Action Required |
 |---|---|---|---|---|
 | 1 | Vercel — SPA routing | vercel.json has correct rewrite rule (source: /(.*) -> /index.html) | VERIFIED | None |
 | 2 | Vercel — framework | Set to "vite", outputDirectory "dist", installCommand "npm install" | VERIFIED | None |
-| 3 | Vercel — VITE_API_URL env var | **RESOLVED 2026-10-15** | `vercel env rm VITE_API_URL production` then `vercel env add VITE_API_URL production --value "https://arogya-backend.onrender.com"`. New build pushed at `85d099f`; live bundle `DiagnosePage-j4J7mXvZ.js` confirmed to contain `https://arogya-backend.onrender.com`. |
+| 3 | Vercel — VITE_API_URL env var | **RESOLVED 2026-10-15** | Set to `https://arogyaai-backend-roaq.onrender.com`. Live bundle `DiagnosePage-myj3tnL3.js` at commit `7af8b7d` confirmed to contain the correct URL. | VERIFIED (LIVE) | None |
 | 4 | Vercel — VITE_USE_FIREBASE_EMULATORS | frontend/.env.local sets this TRUE, but .env.local is gitignored and NOT sent to Vercel. Emulator is NOT active in production. | VERIFIED | None |
 | 5 | Vercel — Firebase config | Hardcoded in firebase.ts (apiKey, projectId etc). Browser-safe config token. Not a secret. | VERIFIED | None |
-| 6 | Vercel — page HTTP response | https://arogya-ai-clinical-decision-support-nine.vercel.app returns HTTP 200 | VERIFIED | None |
-| 7 | Render — render.yaml start command | uvicorn backend.index:app --host 0.0.0.0 --port  — correct | VERIFIED (local) | None |
+| 6 | Vercel — page HTTP response | https://arogya-ai-clinical-decision-support-nine.vercel.app returns HTTP 200 | VERIFIED (LIVE) | None |
+| 7 | Render — render.yaml start command | uvicorn backend.index:app --host 0.0.0.0 --port $PORT — correct | VERIFIED (local) | None |
 | 8 | Render — Python version | PYTHON_VERSION=3.12.7 in render.yaml — scikit-learn 1.9 requires >=3.11, 3.12 satisfies it | VERIFIED (local) | None |
-| 9 | Render — GEMINI_API_KEY | Declared sync:false so Render prompts for value instead of reading a committed secret. Value NOT in code. | VERIFIED (local) | **Set GEMINI_API_KEY in Render dashboard** |
-| 10 | Render — CORS origin | AROGYA_CORS_ORIGINS=https://arogya-ai-clinical-decision-support-nine.vercel.app. Exact Vercel URL is present. | VERIFIED (local) | None |
+| 9 | Render — GEMINI_API_KEY | Declared sync:false so Render prompts for value instead of reading a committed secret. Value NOT in code. | VERIFIED (local) | Optional: set in Render dashboard for LLM explanations (ML works without it) |
+| 10 | Render — CORS origin | AROGYA_CORS_ORIGINS=https://arogya-ai-clinical-decision-support-nine.vercel.app. Exact Vercel URL is present and live CORS preflight verified. | VERIFIED (LIVE) | None |
 | 11 | Render — FIREBASE_PROJECT_ID | arogyaai-cloud-ad667 hardcoded in render.yaml | VERIFIED | None |
-| 12 | Render — service HTTP status | `https://arogyaai-backend-roaq.onrender.com/api/health` (correct URL per dashboard) returns **200** with full model metadata | **PASS — LIVE** | Verified 2026-10-15: `{"status":"healthy","model":"Logistic Regression","supported_diseases":399,"disclaimer":"..."}`. Initial cold-start requests timed out (free-tier 30–60 s wake-up), warm requests respond in <1 s. |
-| 13 | Render — model artifact | arogyaai_model.joblib is tracked in git (2.56 MB). Render clones the repo, so the artifact is present. | VERIFIED (local) | None |
-| 14 | Render — AROGYA_AUTH_REQUIRED | Defaults to "true" in config.py. Not set to false in render.yaml. Correct. | VERIFIED | None |
-| 15 | Backend — CORS default list | config.py default includes localhost ports + the exact Vercel URL. No wildcard. | VERIFIED | None |
-| 16 | Backend — /api/health | Returns HTTP 200, status healthy, model Logistic Regression, 399 diseases — locally | VERIFIED (local) | None |
-| 17 | Backend — 401 on missing token | All tests pass. Auth enforcement confirmed. | VERIFIED (local) | None |
-| 18 | Backend — ML model loads | Logistic Regression, 399 classes, loads from repo root. | VERIFIED (local) | None |
+| 12 | Render — service HTTP status | `https://arogyaai-backend-roaq.onrender.com/api/health` returns **200** with full model metadata | **PASS — LIVE** | Verified 2026-10-15: `{"status":"healthy","model":"Logistic Regression","supported_diseases":399,"disclaimer":"..."}`. Cold-start ~30–60 s, warm responses <1 s. |
+| 13 | Render — model artifact | arogyaai_model.joblib is tracked in git (2.56 MB). Render clones the repo, so the artifact is present. | VERIFIED (LIVE) | None |
+| 14 | Render — AROGYA_AUTH_REQUIRED | Defaults to "true" in config.py. Live endpoints reject unauthenticated calls with 401. | VERIFIED (LIVE) | None |
+| 15 | Backend — CORS default list | config.py default includes localhost ports + the exact Vercel URL. No wildcard. Foreign origins rejected with 400. | VERIFIED (LIVE) | None |
+| 16 | Backend — /api/health | Returns HTTP 200, status healthy, model Logistic Regression, 399 diseases | VERIFIED (LIVE) | None |
+| 17 | Backend — 401 on missing token | Missing token -> 401 MISSING_TOKEN, invalid token -> 401 INVALID_TOKEN. Auth enforcement confirmed. | VERIFIED (LIVE) | None |
+| 18 | Backend — ML model loads | Logistic Regression, 399 classes, loads from repo root. | VERIFIED | None |
 | 19 | Firebase — emulator flag | VITE_USE_FIREBASE_EMULATORS only active when that env var is "true". gitignored .env.local. | VERIFIED | None |
 | 20 | Firebase — authDomain | arogyaai-cloud-ad667.firebaseapp.com hardcoded in firebase.ts. Correct for this project. | VERIFIED | None |
 | 21 | Firebase — Vercel domain in Auth allowlist | Cannot verify without login — must be checked in Firebase Console | BLOCKED | **Verify Vercel domain in Firebase Auth Authorized Domains (see Phase 3)** |
-| 22 | Firebase — Firestore rules deployed | Cannot verify without login | BLOCKED | **Deploy rules: firebase deploy --only firestore:rules,firestore:indexes** |
-| 23 | Firebase — doctor account | Cannot verify without login | BLOCKED | **Verify at least one approved doctor account exists** |
-| 24 | Firestore — indexes | Both COLLECTION and COLLECTION_GROUP declared for assessments.clinicId | VERIFIED (local) | Deploy to take effect |
-| 25 | Firestore — rules correctness | Rules are comprehensive (474 lines). Doctor/patient/admin boundaries verified by local emulator suite. | VERIFIED (local) | Deploy to take effect |
-| 26 | Frontend build | tsc + Vite — 2204 modules, 0 TypeScript errors | VERIFIED (local) | None |
-| 27 | Backend tests | 83 tests, 83 PASS, 0 FAIL | VERIFIED (local) | None |
+| 22 | Firebase — Firestore rules deployed | Rules compiled and deployed to live project on 2026-10-15 via Firebase CLI | VERIFIED (LIVE) | None |
+| 23 | Firebase — doctor account | Requires creating user in Firebase Auth + `users/{uid}` with doctor role | BLOCKED | **Create test doctor account in Firebase Console** |
+| 24 | Firestore — indexes | Both COLLECTION and COLLECTION_GROUP declared for assessments.clinicId; deployed to live project | VERIFIED (LIVE) | None |
+| 25 | Firestore — rules correctness | Rules are comprehensive (474 lines). Deployed to live project 2026-10-15. | VERIFIED (LIVE) | None |
+| 26 | Frontend build | tsc + Vite — 2204 modules, 0 TypeScript errors | VERIFIED | None |
+| 27 | Backend tests | 83 tests, 83 PASS, 0 FAIL | VERIFIED | None |
 
 ---
 
@@ -285,37 +245,37 @@ Correct order:
 
 ---
 
-## Complete Action Checklist (All items requiring YOUR login)
+## Complete Action Checklist & Status
 
-| # | Action | Where | Priority |
+| # | Action | Status | Notes |
 |---|---|---|---|
-| A | Resume Render service | https://dashboard.render.com | CRITICAL — backend is down |
-| B | Set GEMINI_API_KEY in Render | Render dashboard -> Environment | CRITICAL for LLM recommendations |
-| C | Copy Render URL after resume | Render dashboard | CRITICAL |
-| D | Set VITE_API_URL in Vercel | Vercel dashboard -> Settings -> Env Vars | CRITICAL — frontend calls localhost otherwise |
-| E | Trigger Vercel redeploy | Vercel dashboard -> Deployments -> Redeploy | CRITICAL — env var baked at build time |
-| F | Confirm VITE_USE_FIREBASE_EMULATORS is NOT in Vercel | Vercel dashboard -> Settings -> Env Vars | CRITICAL |
-| G | Verify Vercel domain in Firebase Auth | Firebase Console -> Auth -> Settings -> Authorized Domains | HIGH |
-| H | Verify Email/Password sign-in is enabled | Firebase Console -> Auth -> Sign-in providers | HIGH |
-| I | Verify doctor's users/{uid} document has role+status+clinicId | Firestore Console -> users collection | HIGH |
-| J | Deploy Firestore rules and indexes | Terminal: firebase deploy --only firestore:rules,firestore:indexes | HIGH |
-| K | Create clinic document if none exists | Firestore Console -> clinics collection | MEDIUM (needed for patient management) |
-| L | Run backend smoke test (health + 401 check) | PowerShell (commands above) | HIGH |
-| M | Run frontend smoke test (login + prediction) | Browser | HIGH |
-| N | Push Pydantic fix + docs to GitHub | git push origin main (AFTER step D) | MEDIUM |
+| A | Render service running & healthy | **RESOLVED** | `https://arogyaai-backend-roaq.onrender.com` returns 200 on `/` and `/api/health`. |
+| B | Set GEMINI_API_KEY in Render | OPTIONAL | Render dashboard -> Environment. System safely falls back if unset. |
+| C | Verify Render service URL | **RESOLVED** | Identified as `https://arogyaai-backend-roaq.onrender.com`. |
+| D | Set VITE_API_URL in Vercel | **RESOLVED** | Set via `vercel env add VITE_API_URL production`. |
+| E | Trigger Vercel redeploy | **RESOLVED** | Rebuilt; bundle `DiagnosePage-myj3tnL3.js` contains the Render backend URL. |
+| F | Confirm VITE_USE_FIREBASE_EMULATORS not in Vercel | **RESOLVED** | Only in local gitignored `.env.local`. |
+| G | Verify Vercel domain in Firebase Auth | ACTION REQUIRED | Firebase Console -> Auth -> Settings -> Authorized Domains. |
+| H | Verify Email/Password sign-in enabled | ACTION REQUIRED | Firebase Console -> Auth -> Sign-in providers. |
+| I | Create test doctor account in Firebase Auth + Firestore | ACTION REQUIRED | Create user in Auth + `users/{uid}` in Firestore (`role: "doctor"`, `status: "approved"`, `clinicId: "RCCSO8"`). |
+| J | Deploy Firestore rules and indexes | **RESOLVED** | Deployed 2026-10-15 via Firebase CLI. |
+| K | Create clinic document (CLIN01 / RCCSO8) | ACTION REQUIRED | Firestore Console -> `clinics` collection. |
+| L | Run backend smoke test (health + 401 check) | **RESOLVED** | Health 200, CORS 200, Missing token 401, Invalid token 401. |
+| M | Run frontend smoke test (live browser) | PENDING USER LOGIN | Test once doctor user is created in Firebase (item I). |
+| N | Push Pydantic fix + docs to GitHub | **RESOLVED** | Pushed to `main` at commit `7af8b7d` / `9fe1b4d`. |
 
 ---
 
-## What Will Work Without Any Action
+## What Is Working Today (Verified Live)
 
-- Local development (backend + frontend, with emulators)
-- All 83 automated backend tests
-- Frontend TypeScript build
-- Backend ML inference and XAI (locally)
+- Live Render backend: 200 OK (`/`, `/api/health`) with ML model loaded (399 classes)
+- Live Vercel frontend: 200 OK, points to live Render backend
+- Live CORS: Vercel origin allowed with credentials, foreign origins rejected
+- Live Auth gate: unauthenticated calls rejected with 401 MISSING_TOKEN / INVALID_TOKEN
+- Live Firestore rules & indexes: deployed to `arogyaai-cloud-ad667`
+- Local ML inference & XAI: 83/83 pytest passed, clean Vite build
 
-## What Will NOT Work Until Your Actions Complete
+## Remaining Action For Live Demo
 
-- Production predictions (blocked by items A, B, C, D, E above)
-- Login on the live site from the Vercel URL (blocked by G, H)
-- Patient management with live Firestore (blocked by J, K)
+- Create the test doctor account in Firebase Console (item I) to sign in on the live frontend and perform an authenticated diagnosis.
 - Gemini Ayurvedic recommendations in production (blocked by B)

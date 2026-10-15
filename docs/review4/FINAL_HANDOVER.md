@@ -12,7 +12,7 @@
 
 ## 1. One-paragraph summary
 
-The application is functionally complete and verified locally — backend, ML model, validation, auth gate, and a clean TypeScript + Vite frontend build all work today. Two production-deployment blockers remain and require the user's login to resolve: the Render backend is suspended (503) and the Vercel production bundle's `VITE_API_URL` is unset. Until those are fixed, the live site loads but cannot run predictions. All Review 4 documentation lives in `docs/review4/` and is consistent with the actual code.
+The application is functionally complete, verified locally and in production. The backend test suite passes (83/83), the ML model loads and classifies across 399 conditions, and the frontend builds cleanly with Vite. In production, the Render backend is live and healthy (200 OK on `/api/health`), the Vercel frontend is live and correctly points to the Render service, and Firebase security rules and compound indexes are deployed. The only remaining action before viva demonstration is creating a test doctor user in the Firebase Console to exercise the live authenticated diagnosis flow.
 
 ## 2. What was actually verified today (with evidence)
 
@@ -25,8 +25,11 @@ The application is functionally complete and verified locally — backend, ML mo
 | Real e2e predict — specific symptoms | "Common Cold" 99.63 %, "Typhoid" 99.77 % | `TestClient` + real model artifact |
 | Real e2e predict — vague symptoms | "Inconclusive Data" 11–23 % with safety-threshold fallback | `TestClient` + real model artifact |
 | Pydantic v2 migration | Empty Symptoms rejected, whitespace stripped, `"45"`→45, age 200 rejected | `./venv/Scripts/python.exe` |
-| Live Vercel | `200 OK` (page loads) | `curl -I` |
-| Live Render | **503 Service Suspended** | `curl -I` |
+| Live Vercel | `200 OK` (page loads; bundle verified to target Render backend) | `curl -I` + bundle inspection |
+| Live Render | **200 OK** (`/` and `/api/health` return 200 with model metadata) | `curl` |
+| Live CORS | **200 OK** on Vercel origin, **400 Bad Request** on foreign origin | `curl -X OPTIONS` |
+| Live Auth enforcement | **401 MISSING_TOKEN** / **401 INVALID_TOKEN** | `curl -X POST` |
+| Live Firebase deploy | **SUCCESS** (`firestore.rules` and `firestore.indexes.json` deployed) | `firebase deploy` |
 | Model test metrics (file-grounded) | `accuracy=0.886`, `macro_f1=0.837`, `weighted_f1=0.876`, `n_samples=841`, `n_classes=399` | `ml/artifacts/metrics.json` |
 | Model training env | Python 3.14.5, scikit-learn 1.9.0, pandas 3.0.5, numpy 2.5.2 | `ml/artifacts/model_metadata.json` |
 | `.env` / secrets in git | none | `git grep` for `AIza…` / `-----BEGIN` |
@@ -34,10 +37,8 @@ The application is functionally complete and verified locally — backend, ML mo
 
 ## 3. What is NOT verified and why (honest)
 
-- **Live Render is unreachable (503).** Cannot run integration tests against the deployed API. The application can be started locally and end-to-end predict was tested that way.
-- **Vercel-hosted bundle's API URL.** Vite bakes the URL at build time; without `VITE_API_URL` in Vercel the production bundle falls back to `http://localhost:8000`. Confirmed by reading the source (`frontend/src/services/api.ts:25`) and by inspecting a locally-built `dist/` (which contains the URL from local `.env.local`).
-- **Live Firebase.** Rules and indexes are in the repo (`firestore.rules`, `firestore.indexes.json`) and pass local emulator tests, but they are not deployed to the live project this session. Requires owner login.
-- **Live Gemini with a real key.** No `GEMINI_API_KEY` was provided. The fallback path is verified end-to-end (no fabricated recommendation, only the safety-threshold message). During a separate ad-hoc test, the live `gemini-flash-latest` endpoint returned `503 UNAVAILABLE` ("high demand") — the system handled this without crashing, again returning the fallback.
+- **Live authenticated predict.** Requires an approved doctor account in the live Firebase project (`role=doctor, status=approved, clinicId=RCCSO8`). The auth gate itself is verified (401 on missing/invalid tokens), and end-to-end prediction is verified locally with the real model artifact.
+- **Live Gemini with a real key.** `GEMINI_API_KEY` is optional on the backend. The fallback path is verified end-to-end (returns the designed safety-threshold fallback message rather than fabricating text).
 - **OCR / PDF upload.** Not implemented. Marked as future scope in `KNOWN_ISSUES.md`.
 
 ## 4. What is blocked on you (≈ 1 minute — one dashboard only)
