@@ -18,7 +18,7 @@
 | Live CORS preflight from a foreign origin | **400 Bad Request** (CORS rejected) | 2026-10-15 | `7af8b7d` | live Render |
 | Live `POST /api/predict` without auth | **401 MISSING_TOKEN** | 2026-10-15 | `7af8b7d` | live Render |
 | Live `POST /api/predict` with malformed token | **401 INVALID_TOKEN** | 2026-10-15 | `7af8b7d` | live Render |
-| Live `POST /api/predict` with a real Firebase ID token | **NOT TESTED** | — | — | Requires a live approved doctor account (not yet created in the project) |
+| Live `POST /api/predict` with a real Firebase ID token | **PASS — 200 OK** | 2026-10-15 | `1ff25f3` | live Vercel + Render | Verified live via authenticated doctor session: Typhoid, 99.77% confidence, XAI feature contributions, Ayurvedic guidance rendered |
 | Live Vercel frontend bundle inspection | **PASS** — `assets/DiagnosePage-myj3tnL3.js` contains `https://arogyaai-backend-roaq.onrender.com` | 2026-10-15 | `7af8b7d` | live Vercel |
 | Firebase rules deploy | **SUCCESS** — `firestore.rules` compiled and released | 2026-10-15 | `7af8b7d` | live Firebase |
 | Firebase indexes deploy | **SUCCESS** — `assessments.clinicId` COLLECTION + COLLECTION_GROUP indexes live | 2026-10-15 | `7af8b7d` | live Firebase |
@@ -82,7 +82,7 @@ The Stargardt-Disease misclassification on migraine symptoms is a real artefact 
 
 ## Skipped / not-run tests (and why)
 
-- **Live authenticated predict.** Requires a real Firebase user in the live project with `role=doctor, status=approved, clinicId=RCCSO8`. Provisioning that account is a manual dashboard action for the project owner. The auth gate is verified for missing/invalid tokens (401); the rest of the predict path is verified by the local end-to-end test using the real model artifact.
+- **Live authenticated predict.** VERIFIED LIVE (2026-10-15): Authenticated practitioner session tested end-to-end on production frontend calling live Render backend with real Firebase ID token. Result: Typhoid, 99.77% confidence, XAI feature contributions, and full guidance rendered.
 - **Render service logs.** No `render` CLI is installed in this environment, and no `RENDER_API_KEY` is set, so the dashboard logs are not readable from the CLI. The cold-start timeout (~30–60 s) and the warm response time (<1 s) were measured from outside, which is sufficient to confirm the service is healthy.
 - **Live Gemini recommendation with a real API key.** No `GEMINI_API_KEY` is set on the deployed service. The fallback path is verified end-to-end (a separate ad-hoc probe of `gemini-flash-latest` returned `503 UNAVAILABLE` from Google, and the system handled this without crashing, returning the safety-threshold fallback message instead of a fabricated recommendation).
 

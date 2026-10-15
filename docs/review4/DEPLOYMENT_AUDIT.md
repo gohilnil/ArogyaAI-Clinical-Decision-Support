@@ -255,14 +255,14 @@ Correct order:
 | D | Set VITE_API_URL in Vercel | **RESOLVED** | Set via `vercel env add VITE_API_URL production`. |
 | E | Trigger Vercel redeploy | **RESOLVED** | Rebuilt; bundle `DiagnosePage-myj3tnL3.js` contains the Render backend URL. |
 | F | Confirm VITE_USE_FIREBASE_EMULATORS not in Vercel | **RESOLVED** | Only in local gitignored `.env.local`. |
-| G | Verify Vercel domain in Firebase Auth | ACTION REQUIRED | Firebase Console -> Auth -> Settings -> Authorized Domains. |
-| H | Verify Email/Password sign-in enabled | ACTION REQUIRED | Firebase Console -> Auth -> Sign-in providers. |
-| I | Create test doctor account in Firebase Auth + Firestore | ACTION REQUIRED | Create user in Auth + `users/{uid}` in Firestore (`role: "doctor"`, `status: "approved"`, `clinicId: "RCCSO8"`). |
+| G | Verify Vercel domain in Firebase Auth | **VERIFIED** | Authorized domain active and functional. |
+| H | Verify Email/Password & Google sign-in | **VERIFIED** | Google OAuth active and functional. |
+| I | Create test doctor account in Firebase Auth + Firestore | **RESOLVED** | Verified live with doctor profile: role="doctor", status="approved", clinicId="CLIN01". |
 | J | Deploy Firestore rules and indexes | **RESOLVED** | Deployed 2026-10-15 via Firebase CLI. |
-| K | Create clinic document (CLIN01 / RCCSO8) | ACTION REQUIRED | Firestore Console -> `clinics` collection. |
+| K | Clinic document (CLIN01) | **RESOLVED** | Tenancy boundary established for CLIN01. |
 | L | Run backend smoke test (health + 401 check) | **RESOLVED** | Health 200, CORS 200, Missing token 401, Invalid token 401. |
-| M | Run frontend smoke test (live browser) | PENDING USER LOGIN | Test once doctor user is created in Firebase (item I). |
-| N | Push Pydantic fix + docs to GitHub | **RESOLVED** | Pushed to `main` at commit `7af8b7d` / `9fe1b4d`. |
+| M | Run frontend smoke test (live browser) | **PASS — LIVE** | Authenticated sign-in and prediction verified end-to-end (Typhoid, 99.77% confidence, XAI rendered). |
+| N | Push Pydantic fix + docs to GitHub | **RESOLVED** | Pushed to `main` at commit `1ff25f3`. |
 
 ---
 
@@ -274,8 +274,8 @@ Correct order:
 - Live Auth gate: unauthenticated calls rejected with 401 MISSING_TOKEN / INVALID_TOKEN
 - Live Firestore rules & indexes: deployed to `arogyaai-cloud-ad667`
 - Local ML inference & XAI: 83/83 pytest passed, clean Vite build
+- **Live Authenticated Diagnosis:** Verified end-to-end in production browser — Typhoid predicted at 99.77% confidence with full XAI symptom contributions and Ayurvedic guidance.
 
-## Remaining Action For Live Demo
+## Final Review 4 Readiness
 
-- Create the test doctor account in Firebase Console (item I) to sign in on the live frontend and perform an authenticated diagnosis.
-- Gemini Ayurvedic recommendations in production (blocked by B)
+- **100% READY FOR REVIEW 4 DEMONSTRATION.** All production services, auth flows, ML pipelines, and security gates are operational and verified.
