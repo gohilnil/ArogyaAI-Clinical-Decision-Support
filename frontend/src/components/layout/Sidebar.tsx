@@ -8,11 +8,13 @@ import {
   LayoutDashboard,
   BrainCircuit,
   Users,
+  UserCheck,
+  Building2,
+  ScrollText,
   Settings,
   HelpCircle,
   HeartPulse,
   PlusCircle,
-  ShieldCheck,
   ClipboardList,
 } from "lucide-react";
 import { signOut } from "firebase/auth";
@@ -41,12 +43,14 @@ export default function Sidebar({
    * A plain `pathname === item.path` was wrong for any nested route: opening a
    * patient at /patients/abc left "Patient Records" unhighlighted, so the
    * sidebar said the practitioner was nowhere while they were three levels into
-   * that section. A prefix match fixes it — but "/" is a prefix of everything,
-   * so the root entry is matched exactly and only when nothing more specific
-   * does.
+   * that section. A prefix match fixes it — but "/" and "/admin" are base
+   * sections that have sibling nested tabs (/admin/accounts, /admin/clinics, etc.),
+   * so they are matched exactly to avoid highlighting the overview dashboard
+   * when viewing specific sub-management sections.
    */
   const isCurrent = (path: string) => {
     if (path === "/") return location.pathname === "/";
+    if (path === "/admin") return location.pathname === "/admin";
     return (
       location.pathname === path || location.pathname.startsWith(`${path}/`)
     );
@@ -56,9 +60,29 @@ export default function Sidebar({
     userRole === "admin"
       ? [
           {
-            name: "Admin Panel",
+            name: "Dashboard",
             path: "/admin",
-            icon: <ShieldCheck size={22} />,
+            icon: <LayoutDashboard size={22} />,
+          },
+          {
+            name: "User Management",
+            path: "/admin/accounts",
+            icon: <Users size={22} />,
+          },
+          {
+            name: "Approvals",
+            path: "/admin/approvals",
+            icon: <UserCheck size={22} />,
+          },
+          {
+            name: "Clinics",
+            path: "/admin/clinics",
+            icon: <Building2 size={22} />,
+          },
+          {
+            name: "Audit Logs",
+            path: "/admin/audit",
+            icon: <ScrollText size={22} />,
           },
           {
             name: "Profile Settings",
@@ -128,14 +152,18 @@ export default function Sidebar({
       className={`w-72 bg-slate-950 text-slate-300 min-h-screen p-6 flex flex-col no-print fixed z-[100] transition-transform duration-300 ease-in-out ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
     >
       <div className="flex items-center justify-between mb-12 mt-4 px-2">
-        <div className="flex items-center gap-3">
-          <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-2.5 rounded-xl shadow-lg shadow-emerald-900/50">
+        <Link
+          to={userRole === "admin" ? "/admin" : "/"}
+          onClick={() => window.innerWidth < 768 && setIsOpen(false)}
+          className="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 rounded-xl"
+        >
+          <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-2.5 rounded-xl shadow-lg shadow-emerald-900/50 group-hover:scale-105 transition-transform">
             <Leaf className="text-white w-6 h-6" />
           </div>
           <span className="text-2xl font-black tracking-tight text-white">
             Arogya<span className="text-emerald-400">AI</span>
           </span>
-        </div>
+        </Link>
         <button
           onClick={() => setIsOpen(false)}
           aria-label="Close navigation menu"

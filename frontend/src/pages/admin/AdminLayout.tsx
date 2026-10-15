@@ -113,7 +113,7 @@ export default function AdminLayout({
 
   const navItems = [
     { to: "/admin", end: true, label: "Overview", icon: <LayoutDashboard size={18} /> },
-    { to: "/admin/accounts", end: false, label: "Accounts", icon: <Users size={18} /> },
+    { to: "/admin/accounts", end: false, label: "User Accounts", icon: <Users size={18} /> },
     {
       to: "/admin/approvals",
       end: false,
@@ -122,7 +122,7 @@ export default function AdminLayout({
       badge: pendingCount,
     },
     { to: "/admin/clinics", end: false, label: "Clinics", icon: <Building2 size={18} /> },
-    { to: "/admin/audit", end: false, label: "Audit log", icon: <ScrollText size={18} /> },
+    { to: "/admin/audit", end: false, label: "Audit Logs", icon: <ScrollText size={18} /> },
   ];
 
   return (
@@ -133,10 +133,10 @@ export default function AdminLayout({
     >
       <div>
         <h1 className="text-4xl font-black text-slate-950 tracking-tighter mb-2">
-          Admin
+          Admin Dashboard
         </h1>
         <p className="text-slate-500 font-medium text-lg">
-          Accounts, onboarding and oversight. Clinical records stay under clinic
+          Overview of ArogyaAI platform activity and administration. Clinical records stay under clinic
           control — this panel cannot read them.
         </p>
       </div>

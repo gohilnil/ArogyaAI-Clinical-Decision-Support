@@ -98,7 +98,17 @@ export default function AppShell({
           <div className="-mt-4">
             <Suspense fallback={<RouteFallback />}>
               <Routes>
-                {userData?.role === "doctor" ? (
+                {userData?.role === "admin" ? (
+                  <>
+                    {/* Admin landing: visiting the root URL immediately redirects
+                        to the Admin Dashboard at /admin, rather than falling
+                        through to the patient wellness portal. */}
+                    <Route
+                      path="/"
+                      element={<Navigate to="/admin" replace />}
+                    />
+                  </>
+                ) : userData?.role === "doctor" ? (
                   <>
                     <Route
                       path="/"
@@ -163,7 +173,15 @@ export default function AppShell({
                   <Route path="clinics" element={<AdminClinicsPage />} />
                   <Route path="audit" element={<AdminAuditLogPage />} />
                 </Route>
-                <Route path="*" element={<Navigate to="/" replace />} />
+                <Route
+                  path="*"
+                  element={
+                    <Navigate
+                      to={userData?.role === "admin" ? "/admin" : "/"}
+                      replace
+                    />
+                  }
+                />
               </Routes>
             </Suspense>
           </div>
