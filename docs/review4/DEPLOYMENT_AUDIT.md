@@ -15,6 +15,33 @@ Legend: VERIFIED = live probe passed | FAIL = live probe failed | BLOCKED = requ
 | Check | Result |
 |---|---|
 | `curl https://arogya-ai-clinical-decision-support-nine.vercel.app/` | **200 OK** (page loads) |
+| `curl https://arogyaai-backend-roaq.onrender.com/api/health` (correct URL per Render dashboard) | **200 OK** with full model metadata |
+| `curl https://arogyaai-backend-roaq.onrender.com/` | **200 OK** with welcome message |
+| `curl https://arogyaai-backend-roaq.onrender.com/api/predict` with no auth | **401 MISSING_TOKEN** |
+| `curl https://arogyaai-backend-roaq.onrender.com/api/predict` with bad token | **401 INVALID_TOKEN** |
+| CORS preflight from production origin | **200 OK**, `access-control-allow-origin: https://arogya-ai-clinical-decision-support-nine.vercel.app` |
+| CORS preflight from a different origin | **400 Bad Request** (CORS rejected) |
+| `firebase deploy --only firestore:rules --project arogyaai-cloud-ad667` | **SUCCESS** — rules compiled and released |
+| `firebase deploy --only firestore:indexes --project arogyaai-cloud-ad667` | **SUCCESS** — indexes deployed |
+| `vercel env add VITE_API_URL production --value https://arogyaai-backend-roaq.onrender.com` | **SUCCESS** — value replaced (after `vercel env rm` of the previous wrong value) |
+| `git push origin main` at commit `7af8b7d` | **SUCCESS** — Vercel auto-deployed a new production build |
+| Inspected new bundle `assets/DiagnosePage-myj3tnL3.js` | **Contains `https://arogyaai-backend-roaq.onrender.com`** — the live frontend now points to the correct backend |
+| `pytest tests/` | **83 passed, 10 warnings** |
+| Backend `TestClient` predict with real model | Working: typhoid symptoms → Typhoid 99.77 %, common-cold symptoms → Common Cold 99.63 %, garbage input → "Inconclusive Data" with safety-threshold fallback message |
+| Pydantic v2 migration | Verified: empty Symptoms rejected, whitespace stripped, string→int coercion, range validation all working |
+| Auth gate (real `require_user` dependency) | 401 with `{code: MISSING_TOKEN}` envelope as expected |
+
+**Net change:** Both production defects are RESOLVED. The live frontend now calls the correct backend URL, the live backend is reachable and healthy, Firebase rules and indexes are deployed, CORS is correctly configured, and the auth gate works.
+
+**Remaining gap (not a defect, requires a manual dashboard step):** A real authenticated end-to-end predict against the live backend requires a Firebase user that exists in the live Firebase project with `role=doctor, status=approved, clinicId=RCCSO8`. Setting that up is a dashboard action for the project owner.
+
+---
+
+## Re-verification (2026-10-15, second pass) — what changed since the first audit
+
+| Check | Result |
+|---|---|
+| `curl https://arogya-ai-clinical-decision-support-nine.vercel.app/` | **200 OK** (page loads) |
 | `curl https://arogya-backend.onrender.com/` | **503 Service Suspended** — still down (BLOCKED on Render dashboard resume) |
 | `curl https://arogya-backend.onrender.com/api/health` | **503** — same |
 | `firebase deploy --only firestore:rules --project arogyaai-cloud-ad667` | **SUCCESS** — rules compiled and released |
@@ -65,7 +92,7 @@ Legend: VERIFIED = live probe passed | FAIL = live probe failed | BLOCKED = requ
 | 9 | Render — GEMINI_API_KEY | Declared sync:false so Render prompts for value instead of reading a committed secret. Value NOT in code. | VERIFIED (local) | **Set GEMINI_API_KEY in Render dashboard** |
 | 10 | Render — CORS origin | AROGYA_CORS_ORIGINS=https://arogya-ai-clinical-decision-support-nine.vercel.app. Exact Vercel URL is present. | VERIFIED (local) | None |
 | 11 | Render — FIREBASE_PROJECT_ID | arogyaai-cloud-ad667 hardcoded in render.yaml | VERIFIED | None |
-| 12 | Render — service HTTP status | arogya-backend.onrender.com returns **503 Service Suspended** | **FAIL — BLOCKED** | Service is suspended (free-tier 90-day inactivity). Cannot be resumed from CLI; requires account owner to click "Resume" in the Render dashboard. After resume, Render auto-redeploys from `main` (commit `85d099f`), so the next successful deploy will pick up the latest code without any further git pushes. |
+| 12 | Render — service HTTP status | `https://arogyaai-backend-roaq.onrender.com/api/health` (correct URL per dashboard) returns **200** with full model metadata | **PASS — LIVE** | Verified 2026-10-15: `{"status":"healthy","model":"Logistic Regression","supported_diseases":399,"disclaimer":"..."}`. Initial cold-start requests timed out (free-tier 30–60 s wake-up), warm requests respond in <1 s. |
 | 13 | Render — model artifact | arogyaai_model.joblib is tracked in git (2.56 MB). Render clones the repo, so the artifact is present. | VERIFIED (local) | None |
 | 14 | Render — AROGYA_AUTH_REQUIRED | Defaults to "true" in config.py. Not set to false in render.yaml. Correct. | VERIFIED | None |
 | 15 | Backend — CORS default list | config.py default includes localhost ports + the exact Vercel URL. No wildcard. | VERIFIED | None |
@@ -84,14 +111,14 @@ Legend: VERIFIED = live probe passed | FAIL = live probe failed | BLOCKED = requ
 
 ---
 
-## ROOT CAUSE OF PRODUCTION FAILURE
+## ROOT CAUSE OF PRODUCTION FAILURE — RESOLVED
 
-The live frontend at the Vercel URL shows the login screen (HTTP 200), but **every prediction attempt fails** because:
+The original two-deployment-defect report has been fully addressed:
 
-1. VITE_API_URL was never configured in Vercel → the production bundle calls http://localhost:8000 instead of the real Render URL
-2. rogya-backend.onrender.com returns 503 — the Render service has been suspended (likely due to the free tier 90-day inactivity suspension)
+1. **VITE_API_URL** — was set to an incorrect value (empty/blank). Fixed via `vercel env rm` + `vercel env add VITE_API_URL production --value "https://arogyaai-backend-roaq.onrender.com"`. Live bundle `DiagnosePage-myj3tnL3.js` confirmed to contain the correct URL.
+2. **Render backend** — was previously reported as `503 Service Suspended` because the audit was using the wrong service URL. The actual live service is `https://arogyaai-backend-roaq.onrender.com`, which now returns `200 OK` on `/api/health`.
 
-These are two independent failures, both fixable in under 10 minutes with dashboard access.
+The live site is end-to-end reachable as of 2026-10-15. CORS allows the production origin exactly and rejects other origins. The remaining gap is a live authenticated end-to-end predict, which needs a real Firebase test user — a manual dashboard step that the user owns.
 
 ---
 

@@ -31,13 +31,13 @@ A task is **not** complete because code exists — only when its evidence row po
 | # | Task | Status | Evidence / blocker | Last verified |
 |---|---|---|---|---|
 | A1 | Live Vercel frontend returns 200 | PASS | `curl -I https://arogya-ai-clinical-decision-support-nine.vercel.app/` → 200 | 2026-10-15 |
-| A2 | Vercel production bundle points to correct backend | **RESOLVED** | `vercel env add VITE_API_URL production --value https://arogya-backend.onrender.com` executed 2026-10-15. Live bundle `assets/DiagnosePage-j4J7mXvZ.js` confirmed to contain the URL. | 2026-10-15 |
-| A3 | Live Render backend reachable | **FAIL — BLOCKED** | `https://arogya-backend.onrender.com/api/health` → **503 Service Suspended**. Cannot resume from CLI (no `render` binary, no auth token in environment). Owner must click "Resume" in Render dashboard. After resume, Render auto-deploys from `main`. | 2026-10-15 |
+| A2 | Vercel production bundle points to correct backend | **RESOLVED** | `vercel env add VITE_API_URL production --value https://arogyaai-backend-roaq.onrender.com` executed 2026-10-15. Live bundle `assets/DiagnosePage-myj3tnL3.js` confirmed to contain the URL. | 2026-10-15 |
+| A3 | Live Render backend reachable | **RESOLVED** | `https://arogyaai-backend-roaq.onrender.com/api/health` → **200** with full model metadata. Cold start ~30–60 s, warm response <1 s. | 2026-10-15 |
 | A4 | Backend smoke test (`/api/health`) locally | PASS | `TestClient` → `200 {"status":"healthy","model":"Logistic Regression","supported_diseases":399,"disclaimer":"..."}` | 2026-10-15 |
 | A5 | `/api/predict` requires Firebase ID token | PASS | Without `Authorization` header → `401 {"detail":{"error":{"code":"MISSING_TOKEN","message":"A Firebase ID token is required in the Authorization header."}}}` | 2026-10-15 |
 | A6 | Render env vars correct (PYTHON, CORS, FIREBASE_PROJECT_ID) | PASS (local config) | `render.yaml` reviewed: PYTHON_VERSION=3.12.7, FIREBASE_PROJECT_ID=arogyaai-cloud-ad667, AROGYA_CORS_ORIGINS=`https://arogya-ai-clinical-decision-support-nine.vercel.app`, GEMINI_API_KEY declared `sync:false` (Render prompts, not committed). | 2026-10-15 |
-| A7 | Render service actually running | **BLOCKED** | 503 returned; user must resume in Render dashboard. Requires owner login. After resume, Render auto-redeploys from `main` (commit `85d099f`). | 2026-10-15 |
-| A8 | `VITE_API_URL` set to Render URL in Vercel | **RESOLVED** | Set via `vercel env add ... production --value "https://arogya-backend.onrender.com"`; verified by inspecting the new prod bundle `assets/DiagnosePage-j4J7mXvZ.js`. | 2026-10-15 |
+| A7 | Render service actually running | **RESOLVED** | `https://arogyaai-backend-roaq.onrender.com/` and `/api/health` return 200. Service is Live on the Free plan per the user's Render dashboard. The frontend's calls now reach the real backend; cold-start 30–60 s, warm <1 s. | 2026-10-15 |
+| A8 | `VITE_API_URL` set to Render URL in Vercel | **RESOLVED** | Set via `vercel env add ... production --value "https://arogyaai-backend-roaq.onrender.com"`; verified by inspecting the new prod bundle `assets/DiagnosePage-myj3tnL3.js`. | 2026-10-15 |
 | A9 | `VITE_USE_FIREBASE_EMULATORS` not set in Vercel | PASS (likely) | `frontend/src/config/firebase.ts` only enables emulators when `import.meta.env.VITE_USE_FIREBASE_EMULATORS === "true"`. Vite exposes only `VITE_*` env vars, and the only `VITE_USE_FIREBASE_EMULATORS=true` reference is in `frontend/.env.local` (gitignored, not sent to Vercel). Cannot 100% confirm Vercel-side without dashboard access. | 2026-10-15 |
 | A10 | CORS allows the deployed frontend origin | PASS (config) | Backend default `config.py` and `render.yaml` both list `https://arogya-ai-clinical-decision-support-nine.vercel.app` exactly. No wildcard. | 2026-10-15 |
 
@@ -140,24 +140,30 @@ A task is **not** complete because code exists — only when its evidence row po
 | X10 | Commit Pydantic migration + docs to `main` | `git commit ... ; git push origin main` | commit `85d099f` pushed; Vercel auto-deployed a new production build |
 | X11 | Re-inspect new live bundle | `curl + grep` on `DiagnosePage-j4J7mXvZ.js` | `https://arogya-backend.onrender.com` confirmed baked in |
 | X12 | Update deployment audit, execution tracker, and final handover | this session | All three Review 4 docs now reflect today's actual state |
+| X13 | User-reported URL correction: actual Render URL is `https://arogyaai-backend-roaq.onrender.com`, not `https://arogya-backend.onrender.com` | `vercel env rm/add`; new Vercel build at `7af8b7d` | Live bundle `DiagnosePage-myj3tnL3.js` now contains the correct URL |
+| X14 | Live `GET /` and `GET /api/health` | `curl https://arogyaai-backend-roaq.onrender.com/...` | 200 with full model metadata; cold start ~30–60 s, warm <1 s |
+| X15 | Live CORS preflight from production origin | `curl -X OPTIONS` with `Origin: https://arogya-ai-clinical-decision-support-nine.vercel.app` | 200; `access-control-allow-origin` set to the exact Vercel production origin; credentials, headers, methods allowed |
+| X16 | Live CORS preflight from a foreign origin | `curl -X OPTIONS` with `Origin: https://evil.example.com` | 400 — correctly rejected |
+| X17 | Live auth gate (missing token, bad token) | `curl -X POST` with no/garbage `Authorization` header | 401 MISSING_TOKEN and 401 INVALID_TOKEN envelopes |
+| X18 | Created `docs/review4/TEST_RESULTS.md` | Write tool | Records the live endpoint matrix, local e2e predict with the real model, and the only remaining un-tested item (live authenticated predict, which needs a real Firebase doctor user) |
 
 ---
 
 ## Open blockers (require your action)
 
-This is the one remaining item that needs your login — total time: ≈ 2 minutes.
+There is **one remaining item** that needs a real Firebase test user. Everything else is resolved.
 
-1. **Render dashboard** — https://dashboard.render.com
-   - Resume the `arogya-backend` service (currently returning 503).
-   - Once resumed, Render auto-deploys from `main` (commit `85d099f`); no further git push needed.
-   - Set `GEMINI_API_KEY` in the service's Environment tab **only if** you want the LLM-powered Ayurvedic recommendation. The ML prediction works regardless; without the key, the system falls back to a safety-threshold message.
-2. *(removed — VITE_API_URL is now set correctly and verified in the live bundle)*
-3. *(removed — Firebase rules and indexes are deployed live)*
+1. **Firebase console** — https://console.firebase.google.com/project/arogyaai-cloud-ad667
+   - Auth → Users → **Add user**: create a test doctor account (e.g. `demo.doctor@arogyaai.test` with a known password).
+   - Firestore → Data → `users/{uid}` for that new user: set `role="doctor"`, `status="approved"`, `clinicId="RCCSO8"`, `email=<the same email>`, `displayName="Demo Doctor"`.
+   - That's all. The deployed rules already allow approved doctors to write to their own user document, and to read patients/assessments scoped to their `clinicId`. Once this user exists, the live end-to-end predict will work.
+2. **Render service** — already running, no action required. (GEMINI_API_KEY is optional; the ML pipeline works without it, and the recommendation field falls back to the safety-threshold message.)
 
 ## Next actions (this session)
 
 1. ✅ Update `docs/review4/DEPLOYMENT_AUDIT.md` — done 2026-10-15
 2. ✅ Produce `docs/review4/FINAL_HANDOVER.md` — done 2026-10-15
-3. ✅ Commit `85d099f` pushed to `main`; Vercel auto-deployed with corrected env var
+3. ✅ Commit `7af8b7d` pushed to `main`; Vercel auto-deployed with corrected env var
 4. ✅ Firebase rules and indexes deployed live
-5. ⏳ Once you resume Render: run one production smoke test (`curl https://arogya-backend.onrender.com/api/health` should return 200; then open the live site, log in as the approved doctor, and run a predict call) and record the outcome in `docs/review4/TEST_RESULTS.md`.
+5. ✅ Add `docs/review4/TEST_RESULTS.md` with the live endpoint matrix and local e2e predict evidence — done 2026-10-15
+6. ⏳ Once the doctor user is created: open the live site in a browser, sign in as the doctor, and run a real predict. Record the result here.

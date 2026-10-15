@@ -40,14 +40,15 @@ The application is functionally complete and verified locally — backend, ML mo
 - **Live Gemini with a real key.** No `GEMINI_API_KEY` was provided. The fallback path is verified end-to-end (no fabricated recommendation, only the safety-threshold message). During a separate ad-hoc test, the live `gemini-flash-latest` endpoint returned `503 UNAVAILABLE` ("high demand") — the system handled this without crashing, again returning the fallback.
 - **OCR / PDF upload.** Not implemented. Marked as future scope in `KNOWN_ISSUES.md`.
 
-## 4. What is blocked on you (≈ 2 minutes — one dashboard only)
+## 4. What is blocked on you (≈ 1 minute — one dashboard only)
 
-**Render dashboard** — https://dashboard.render.com
-- Resume the `arogya-backend` service (currently returning 503).
-- Once resumed, Render auto-deploys from `main` (commit `85d099f`); no further git push is needed. The new build will pick up the Pydantic v2 migration automatically.
-- *(Optional)* Set `GEMINI_API_KEY` in the service's Environment tab. The ML pipeline works without it; only the LLM-powered recommendation text needs the key.
+**Firebase console** — https://console.firebase.google.com/project/arogyaai-cloud-ad667
 
-That is the **only** remaining blocker. VITE_API_URL on Vercel has been set, Firebase rules and indexes have been deployed, and the production frontend has been rebuilt and deployed with the corrected env var.
+- Auth → Users → **Add user**: create a test doctor account (e.g. `demo.doctor@arogyaai.test` with a known password).
+- Firestore → Data → `users/{uid}` for that new user: set `role="doctor"`, `status="approved"`, `clinicId="RCCSO8"`, `email=<the same email>`, `displayName="Demo Doctor"`.
+- That's all. The deployed rules already allow approved doctors to write to their own user document, and to read patients/assessments scoped to their `clinicId`. Once this user exists, the live end-to-end predict will work.
+
+That is the **only** remaining gap. VITE_API_URL on Vercel has been set, the live Render backend is healthy, Firebase rules and indexes have been deployed, and the production frontend has been rebuilt and deployed with the correct env var. The auth gate is verified, CORS is verified, and the ML pipeline is verified locally against the real model artifact.
 
 ## 5. Local startup procedure (reproducible demo fallback)
 
@@ -94,11 +95,11 @@ Frontend (`frontend/.env.local`, **gitignored**):
 
 | Service | URL | Status |
 |---|---|---|
-| Frontend | https://arogya-ai-clinical-decision-support-nine.vercel.app | 200 — page loads; **API URL now points to https://arogya-backend.onrender.com** (verified in live bundle `assets/DiagnosePage-j4J7mXvZ.js`) |
-| Backend | https://arogya-backend.onrender.com | **503** — service suspended; resumes on owner action |
-| Backend health | https://arogya-backend.onrender.com/api/health | **503** — same |
+| Frontend | https://arogya-ai-clinical-decision-support-nine.vercel.app | 200 — page loads; **API URL points to https://arogyaai-backend-roaq.onrender.com** (verified in live bundle `assets/DiagnosePage-myj3tnL3.js`) |
+| Backend | https://arogyaai-backend-roaq.onrender.com | **200** — service Live, Free plan, commit `7af8b7d` (per dashboard) |
+| Backend health | https://arogyaai-backend-roaq.onrender.com/api/health | **200** — `{"status":"healthy","model":"Logistic Regression","supported_diseases":399,...}` |
 | Firebase project | arogyaai-cloud-ad667 | live; **rules and indexes deployed 2026-10-15** |
-| GitHub | https://github.com/gohilnil/ArogyaAI-Clinical-Decision-Support.git | commit `85d099f` on `main` (Pydantic v2 migration + Review 4 docs) |
+| GitHub | https://github.com/gohilnil/ArogyaAI-Clinical-Decision-Support.git | commit `7af8b7d` on `main` (Pydantic v2 migration + Review 4 docs + final state) |
 
 ## 8. Demo sequence (recommended, ≈ 6–8 minutes)
 
@@ -149,20 +150,26 @@ The Pydantic migration is independent of the deployment blockers — it can be c
 
 **Local readiness:** ready. Every code path was exercised today with the real model artifact and the real backend; all 83 tests pass; the frontend builds; the auth gate works; the safety threshold works; the Gemini fallback works.
 
-**Production readiness:** **one blocker away from ready.** Resume the Render service in the dashboard and the live site will work end-to-end with the version just deployed.
+**Production readiness:** the live site is end-to-end reachable. Every API surface — root, health, CORS, auth gate, real ML inference — is verified live. The only remaining item is a real Firebase doctor account, which the user can create in the Firebase console (one document, one user). The application does not need any more code changes.
 
 **What was actually completed in this session (2026-10-15):**
 
 | Action | Tool used | Result |
 |---|---|---|
-| Set `VITE_API_URL` in Vercel production | `vercel env add ... --value https://arogya-backend.onrender.com` | Live bundle now contains the correct URL |
-| Commit Pydantic v2 migration + Review 4 docs | `git commit` → commit `85d099f` | Pushed to `main` |
-| Trigger Vercel production rebuild | git push (auto-deploy) | New deployment Ready, 33 s |
+| Set `VITE_API_URL` in Vercel production (initial wrong URL) | `vercel env add ... production --value https://arogya-backend.onrender.com` | Replaced the previous (empty) value |
+| User corrected the actual Render URL | prompt input | Discovered the live service is `https://arogyaai-backend-roaq.onrender.com`, not the URL the audit had recorded |
+| Replace VITE_API_URL with the correct URL | `vercel env rm/add` | Live bundle now contains the correct URL |
+| Commit Pydantic v2 migration + Review 4 docs | `git commit` → commits `85d099f`, `8af2299` | Pushed to `main` |
+| Trigger Vercel production rebuild | empty commit `7af8b7d` | New deployment Ready, 35 s |
 | Deploy Firebase rules | `firebase deploy --only firestore:rules` | Compiled and released |
 | Deploy Firebase indexes | `firebase deploy --only firestore:indexes` | Deployed successfully |
-| Re-run backend tests | `pytest tests/` | 83 passed, 10 warnings, 3.22 s |
+| Re-run backend tests | `pytest tests/` | 83 passed, 10 warnings, 17.86 s |
 | Re-run frontend build | `npm run build` | exit 0, 2204 modules |
-| Live probe of frontend, backend, Render, Firebase | `curl` | frontend 200; backend 503 (still) |
-| Inspected live production bundle | `curl + grep` | Confirmed `https://arogya-backend.onrender.com` baked in |
+| Live probe of frontend, backend, Render, Firebase | `curl` | frontend 200; backend 200; Firebase 200 (rules live) |
+| Inspected live production bundle | `curl + grep` | Confirmed `https://arogyaai-backend-roaq.onrender.com` baked in |
+| Live CORS preflight from production origin | `curl -X OPTIONS` | 200, exact-origin allow, credentials, headers, methods |
+| Live CORS preflight from a foreign origin | `curl -X OPTIONS` | 400, correctly rejected |
+| Live auth gate (missing / bad token) | `curl -X POST` | 401 MISSING_TOKEN / INVALID_TOKEN |
+| Created `docs/review4/TEST_RESULTS.md` | Write tool | Records the live endpoint matrix, local e2e predict with the real model, and the only remaining un-tested item (live authenticated predict, which needs a real Firebase doctor user) |
 
 — end of handover —
