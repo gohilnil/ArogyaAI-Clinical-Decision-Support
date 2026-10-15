@@ -10,6 +10,27 @@ Legend: VERIFIED = live probe passed | FAIL = live probe failed | BLOCKED = requ
 
 ---
 
+## Re-verification (2026-10-15, second pass) — what changed since the first audit
+
+| Check | Result |
+|---|---|
+| `curl https://arogya-ai-clinical-decision-support-nine.vercel.app/` | **200 OK** (page loads) |
+| `curl https://arogya-backend.onrender.com/` | **503 Service Suspended** — still down (BLOCKED on Render dashboard resume) |
+| `curl https://arogya-backend.onrender.com/api/health` | **503** — same |
+| `firebase deploy --only firestore:rules --project arogyaai-cloud-ad667` | **SUCCESS** — rules compiled and released |
+| `firebase deploy --only firestore:indexes --project arogyaai-cloud-ad667` | **SUCCESS** — indexes deployed |
+| `vercel env rm VITE_API_URL production` + `vercel env add ... production --value https://arogya-backend.onrender.com` | **SUCCESS** — value replaced |
+| `git push origin main` at commit `85d099f` | **SUCCESS** — Vercel auto-deployed a new production build (`arogya-ai-clinical-decision-support-p3pa-mfjesu9js.vercel.app`, status Ready, 33s) |
+| Inspected new bundle `assets/DiagnosePage-j4J7mXvZ.js` | **Contains `https://arogya-backend.onrender.com`** — the live frontend now points to the correct backend |
+| `pytest tests/` | **83 passed, 10 warnings** |
+| Backend `TestClient` predict with real model | Working: typhoid symptoms → Typhoid 99.77 %, common-cold symptoms → Common Cold 99.63 %, garbage input → "Inconclusive Data" with safety-threshold fallback message |
+| Pydantic v2 migration | Verified: empty Symptoms rejected, whitespace stripped, string→int coercion, range validation all working |
+| Auth gate (real `require_user` dependency) | 401 with `{code: MISSING_TOKEN}` envelope as expected |
+
+**Net change:** VITE_API_URL is now correct in the Vercel production build. Firebase rules and indexes are deployed. The remaining production blocker is **the suspended Render service** — that one is the user's manual dashboard action.
+
+---
+
 ## Re-verification (2026-10-15) — what changed since the first audit
 
 | Check | Result |
@@ -35,7 +56,7 @@ Legend: VERIFIED = live probe passed | FAIL = live probe failed | BLOCKED = requ
 |---|---|---|---|---|
 | 1 | Vercel — SPA routing | vercel.json has correct rewrite rule (source: /(.*) -> /index.html) | VERIFIED | None |
 | 2 | Vercel — framework | Set to "vite", outputDirectory "dist", installCommand "npm install" | VERIFIED | None |
-| 3 | Vercel — VITE_API_URL env var | NOT SET in Vercel dashboard. Production bundle defaults to http://localhost:8000 — every prediction request from a browser fails | **FAIL** | **Set VITE_API_URL in Vercel dashboard (see Phase 2)** |
+| 3 | Vercel — VITE_API_URL env var | **RESOLVED 2026-10-15** | `vercel env rm VITE_API_URL production` then `vercel env add VITE_API_URL production --value "https://arogya-backend.onrender.com"`. New build pushed at `85d099f`; live bundle `DiagnosePage-j4J7mXvZ.js` confirmed to contain `https://arogya-backend.onrender.com`. |
 | 4 | Vercel — VITE_USE_FIREBASE_EMULATORS | frontend/.env.local sets this TRUE, but .env.local is gitignored and NOT sent to Vercel. Emulator is NOT active in production. | VERIFIED | None |
 | 5 | Vercel — Firebase config | Hardcoded in firebase.ts (apiKey, projectId etc). Browser-safe config token. Not a secret. | VERIFIED | None |
 | 6 | Vercel — page HTTP response | https://arogya-ai-clinical-decision-support-nine.vercel.app returns HTTP 200 | VERIFIED | None |
@@ -44,7 +65,7 @@ Legend: VERIFIED = live probe passed | FAIL = live probe failed | BLOCKED = requ
 | 9 | Render — GEMINI_API_KEY | Declared sync:false so Render prompts for value instead of reading a committed secret. Value NOT in code. | VERIFIED (local) | **Set GEMINI_API_KEY in Render dashboard** |
 | 10 | Render — CORS origin | AROGYA_CORS_ORIGINS=https://arogya-ai-clinical-decision-support-nine.vercel.app. Exact Vercel URL is present. | VERIFIED (local) | None |
 | 11 | Render — FIREBASE_PROJECT_ID | arogyaai-cloud-ad667 hardcoded in render.yaml | VERIFIED | None |
-| 12 | Render — service HTTP status | arogya-backend.onrender.com returns **503 Service Suspended** | **FAIL** | **Resume the Render service in Render dashboard** |
+| 12 | Render — service HTTP status | arogya-backend.onrender.com returns **503 Service Suspended** | **FAIL — BLOCKED** | Service is suspended (free-tier 90-day inactivity). Cannot be resumed from CLI; requires account owner to click "Resume" in the Render dashboard. After resume, Render auto-redeploys from `main` (commit `85d099f`), so the next successful deploy will pick up the latest code without any further git pushes. |
 | 13 | Render — model artifact | arogyaai_model.joblib is tracked in git (2.56 MB). Render clones the repo, so the artifact is present. | VERIFIED (local) | None |
 | 14 | Render — AROGYA_AUTH_REQUIRED | Defaults to "true" in config.py. Not set to false in render.yaml. Correct. | VERIFIED | None |
 | 15 | Backend — CORS default list | config.py default includes localhost ports + the exact Vercel URL. No wildcard. | VERIFIED | None |

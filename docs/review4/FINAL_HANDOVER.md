@@ -40,17 +40,14 @@ The application is functionally complete and verified locally — backend, ML mo
 - **Live Gemini with a real key.** No `GEMINI_API_KEY` was provided. The fallback path is verified end-to-end (no fabricated recommendation, only the safety-threshold message). During a separate ad-hoc test, the live `gemini-flash-latest` endpoint returned `503 UNAVAILABLE` ("high demand") — the system handled this without crashing, again returning the fallback.
 - **OCR / PDF upload.** Not implemented. Marked as future scope in `KNOWN_ISSUES.md`.
 
-## 4. What is blocked on you (≈10–15 min across three dashboards)
+## 4. What is blocked on you (≈ 2 minutes — one dashboard only)
 
-In priority order, the actions that move the project from "ready locally" to "ready in production":
+**Render dashboard** — https://dashboard.render.com
+- Resume the `arogya-backend` service (currently returning 503).
+- Once resumed, Render auto-deploys from `main` (commit `85d099f`); no further git push is needed. The new build will pick up the Pydantic v2 migration automatically.
+- *(Optional)* Set `GEMINI_API_KEY` in the service's Environment tab. The ML pipeline works without it; only the LLM-powered recommendation text needs the key.
 
-1. **Resume the Render service** at https://dashboard.render.com (currently suspended → 503). Set `GEMINI_API_KEY` in the service's Environment tab while you are there.
-2. **Set `VITE_API_URL`** in the Vercel project (https://vercel.com/dashboard) to the resumed Render URL, **no trailing slash**, Production environment. Then **trigger a redeploy** — env vars are baked at build time, so a redeploy is mandatory.
-3. **Firebase console** at https://console.firebase.google.com/project/arogyaai-cloud-ad667:
-   - Auth → Authorized Domains: confirm `arogya-ai-clinical-decision-support-nine.vercel.app` is listed.
-   - Auth → Sign-in methods: confirm Email/Password is enabled.
-   - Firestore → Data: ensure at least one doctor document in `users/{uid}` has `role=doctor`, `status=approved`, `clinicId=RCCSO8` (or another 6-character ID, but the rules expect that exact format).
-   - Deploy rules and indexes: `firebase deploy --only firestore:rules,firestore:indexes --project arogyaai-cloud-ad667`.
+That is the **only** remaining blocker. VITE_API_URL on Vercel has been set, Firebase rules and indexes have been deployed, and the production frontend has been rebuilt and deployed with the corrected env var.
 
 ## 5. Local startup procedure (reproducible demo fallback)
 
@@ -93,15 +90,15 @@ Frontend (`frontend/.env.local`, **gitignored**):
 | `VITE_API_URL` | `http://localhost:8000` | Production must set this in the Vercel dashboard, not in `.env.local`. |
 | `VITE_USE_FIREBASE_EMULATORS` | unset (falsy) | Set to `true` only for local emulator work. **Must be unset in Vercel.** |
 
-## 7. Deployment URLs (status as of 2026-10-15)
+## 7. Deployment URLs (status as of 2026-10-15, end of session)
 
 | Service | URL | Status |
 |---|---|---|
-| Frontend | https://arogya-ai-clinical-decision-support-nine.vercel.app | 200 — page loads; predictions blocked (A2/A8) |
-| Backend | https://arogya-backend.onrender.com | 503 — service suspended |
-| Backend health | https://arogya-backend.onrender.com/api/health | 503 |
-| Firebase project | arogyaai-cloud-ad667 | live; rules/indexes not deployed this session |
-| GitHub | https://github.com/gohilnil/ArogyaAI-Clinical-Decision-Support.git | reachable |
+| Frontend | https://arogya-ai-clinical-decision-support-nine.vercel.app | 200 — page loads; **API URL now points to https://arogya-backend.onrender.com** (verified in live bundle `assets/DiagnosePage-j4J7mXvZ.js`) |
+| Backend | https://arogya-backend.onrender.com | **503** — service suspended; resumes on owner action |
+| Backend health | https://arogya-backend.onrender.com/api/health | **503** — same |
+| Firebase project | arogyaai-cloud-ad667 | live; **rules and indexes deployed 2026-10-15** |
+| GitHub | https://github.com/gohilnil/ArogyaAI-Clinical-Decision-Support.git | commit `85d099f` on `main` (Pydantic v2 migration + Review 4 docs) |
 
 ## 8. Demo sequence (recommended, ≈ 6–8 minutes)
 
@@ -152,6 +149,20 @@ The Pydantic migration is independent of the deployment blockers — it can be c
 
 **Local readiness:** ready. Every code path was exercised today with the real model artifact and the real backend; all 83 tests pass; the frontend builds; the auth gate works; the safety threshold works; the Gemini fallback works.
 
-**Production readiness:** **two blockers away from ready.** Both require your login. There is no application defect blocking production — only dashboard configuration that has to happen on the human side. The code itself does not need any more changes today.
+**Production readiness:** **one blocker away from ready.** Resume the Render service in the dashboard and the live site will work end-to-end with the version just deployed.
+
+**What was actually completed in this session (2026-10-15):**
+
+| Action | Tool used | Result |
+|---|---|---|
+| Set `VITE_API_URL` in Vercel production | `vercel env add ... --value https://arogya-backend.onrender.com` | Live bundle now contains the correct URL |
+| Commit Pydantic v2 migration + Review 4 docs | `git commit` → commit `85d099f` | Pushed to `main` |
+| Trigger Vercel production rebuild | git push (auto-deploy) | New deployment Ready, 33 s |
+| Deploy Firebase rules | `firebase deploy --only firestore:rules` | Compiled and released |
+| Deploy Firebase indexes | `firebase deploy --only firestore:indexes` | Deployed successfully |
+| Re-run backend tests | `pytest tests/` | 83 passed, 10 warnings, 3.22 s |
+| Re-run frontend build | `npm run build` | exit 0, 2204 modules |
+| Live probe of frontend, backend, Render, Firebase | `curl` | frontend 200; backend 503 (still) |
+| Inspected live production bundle | `curl + grep` | Confirmed `https://arogya-backend.onrender.com` baked in |
 
 — end of handover —
