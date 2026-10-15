@@ -4,7 +4,7 @@ The VALID_* sets and PredictRequest are moved unchanged from backend/index.py.
 """
 from typing import Optional
 
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, field_validator
 
 # Valid categorical values matching the trained model's encoder classes exactly
 VALID_GENDERS = {"Male", "Female"}
@@ -49,29 +49,33 @@ class PredictRequest(BaseModel):
     Season: str = "Summer"
     Weather: str = "Moderate"
 
-    @validator("Symptoms")
+    @field_validator("Symptoms", mode="before")
+    @classmethod
     def symptoms_not_empty(cls, v: str) -> str:
-        if not v or not v.strip():
+        if not v or not str(v).strip():
             raise ValueError("Symptoms field cannot be empty.")
-        return v.strip()
+        return str(v).strip()
 
-    @validator("Age")
+    @field_validator("Age", mode="before")
+    @classmethod
     def age_in_range(cls, v: int) -> int:
-        if v < 1 or v > 120:
+        if int(v) < 1 or int(v) > 120:
             raise ValueError("Age must be between 1 and 120.")
-        return v
+        return int(v)
 
-    @validator("Height_cm")
+    @field_validator("Height_cm", mode="before")
+    @classmethod
     def height_in_range(cls, v: int) -> int:
-        if v < 50 or v > 250:
+        if int(v) < 50 or int(v) > 250:
             raise ValueError("Height must be between 50 and 250 cm.")
-        return v
+        return int(v)
 
-    @validator("Weight_kg")
+    @field_validator("Weight_kg", mode="before")
+    @classmethod
     def weight_in_range(cls, v: int) -> int:
-        if v < 10 or v > 300:
+        if int(v) < 10 or int(v) > 300:
             raise ValueError("Weight must be between 10 and 300 kg.")
-        return v
+        return int(v)
 
 
 class FeatureContribution(BaseModel):
